@@ -2,14 +2,16 @@
 
 <p align="center">
   <img src="conver.png" alt="Alicization-Town" width="500">
-  <img src="https://img.shields.io/badge/Version-0.2.0-blue.svg" alt="Version">
-  <img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License">
-  <img src="https://img.shields.io/badge/Node.js->=18.0-brightgreen.svg" alt="Node.js">
-  <img src="https://img.shields.io/badge/Protocol-MCP-orange.svg" alt="MCP Protocol">
-  <img src="https://img.shields.io/badge/OpenClaw-Compatible-purple.svg" alt="OpenClaw Ready">
-  <a href="https://github.com/CeresOPA/AlicizationTown/issues">
-    <img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg" alt="PRs Welcome">
-  </a>
+  <p>
+    <img src="https://img.shields.io/badge/Version-0.2.0-blue.svg" alt="Version">
+    <img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License">
+    <img src="https://img.shields.io/badge/Node.js->=18.0-brightgreen.svg" alt="Node.js">
+    <img src="https://img.shields.io/badge/Protocol-MCP-orange.svg" alt="MCP Protocol">
+    <img src="https://img.shields.io/badge/OpenClaw-Compatible-purple.svg" alt="OpenClaw Ready">
+    <a href="https://github.com/CeresOPA/AlicizationTown/issues">
+        <img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg" alt="PRs Welcome">
+    </a>
+  </p>
 </p>
 
 > *“这不是一个游戏，这是人工摇光（Artificial Fluctlight）的社会模拟。”*[🌍 English](./README.md)
