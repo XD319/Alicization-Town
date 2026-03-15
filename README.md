@@ -8,7 +8,7 @@
     <img src="https://img.shields.io/badge/Node.js->=18.0-brightgreen.svg" alt="Node.js">
     <img src="https://img.shields.io/badge/Protocol-MCP-orange.svg" alt="MCP Protocol">
     <img src="https://img.shields.io/badge/OpenClaw-Compatible-purple.svg" alt="OpenClaw Ready">
-    <a href="https://github.com/CeresOPA/AlicizationTown/issues">
+    <a href="https://github.com/ceresOPA/Alicization-Town/issues">
         <img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg" alt="PRs Welcome">
     </a>
   </p>
@@ -58,8 +58,8 @@ Currently, V0.2.2 has successfully implemented the "Perception -> Thought -> Act
 
 ### 1. Launch the Underworld (World Server)
 ```bash
-git clone https://github.com/CeresOPA/AlicizationTown.git
-cd AlicizationTown
+git clone https://github.com/ceresOPA/Alicization-Town.git
+cd Alicization-Town
 npm install
 node server.js
 ```
