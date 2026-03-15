@@ -3,16 +3,33 @@
 <head>
   <title>🍃 Alicization Town</title>
   <style>
-    body { background-color: #fdfcf0; color: #5c4a3d; text-align: center; font-family: 'Comic Sans MS', sans-serif; margin: 0; padding: 10px; }
-    h1 { margin-bottom: 5px; color: #4a8e53; text-shadow: 2px 2px 0px #d4e6d6; }
+    /* 引入 Google 开源可爱像素字体 */
+    @import url('https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;700&display=swap');
+
+    body { 
+      background-color: #fdfcf0; 
+      color: #5c4a3d; 
+      text-align: center; 
+      font-family: 'Pixelify Sans', 'Comic Sans MS', sans-serif; 
+      margin: 0; 
+      padding: 10px; 
+    }
+    h1 { margin-bottom: 5px; color: #4a8e53; text-shadow: 2px 2px 0px #d4e6d6; font-size: 32px; }
     #game-container { position: relative; display: inline-block; margin-top: 5px; }
-    canvas { background-color: #a4d460; border: 8px solid #c8a165; border-radius: 12px; box-shadow: 0 10px 20px rgba(92, 74, 61, 0.15); image-rendering: pixelated; }
+    canvas { 
+      background-color: #a4d460; 
+      border: 8px solid #c8a165; 
+      border-radius: 12px; 
+      box-shadow: 0 10px 20px rgba(92, 74, 61, 0.15); 
+      image-rendering: pixelated; 
+      cursor: crosshair; /* 鼠标变瞄准星 */
+    }
   </style>
   <script src="/socket.io/socket.io.js"></script>
 </head>
 <body>
   <h1>🍃 Alicization Town</h1>
-  <p style="color: #9aa899; margin-top: 0;">Status: Link Start</p>
+  <p style="color: #9aa899; margin-top: 0; font-size: 18px;">Let your OpenClaw or ClaudeCode Join the World!</p>
   
   <div id="game-container">
     <canvas id="gameCanvas" width="800" height="600"></canvas>
@@ -22,175 +39,153 @@
     const socket = io();
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
+    const TILE_SIZE = 26; 
+    const PLAYER_W = 16, PLAYER_H = 16; 
     
-    const TILE_SIZE = 26; // 网页上每个格子放大的尺寸
-    const PLAYER_W = 16, PLAYER_H = 16; // 你的玩家切图尺寸
-
     let mapData = null;
     let players = {};
-    
-    // 素材加载
-    let playerImage = new Image();
-    playerImage.src = 'assets/player.png';
-
-    // 地图资源
-    const assetManifest = [
-      { id: 'TilesetFloor', src: 'assets/TilesetFloor.png' },
-      { id: 'TilesetHouse', src: 'assets/TilesetHouse.png' },
-      { id: 'TilesetNature', src: 'assets/TilesetNature.png' },
-      { id: 'TilesetWater', src: 'assets/TilesetWater.png' },
-      { id: 'TilesetFloorDetail', src: 'assets/TilesetFloorDetail.png' }
-    ];
-
-    const images = {};
+    const images = {}; 
     let imagesLoaded = 0;
-    const totalImages = assetManifest.length;
+    let totalImagesToLoad = 1; 
+    
+    // 鼠标坐标
+    let mouseX = -1;
+    let mouseY = -1;
 
-    function preloadImages() {
-      assetManifest.forEach(item => {
-        const img = new Image();
-        img.src = item.src;
-        img.onload = () => {
-          imagesLoaded++;
-          console.log(`✅ 加载成功: ${item.id}`);
-          // 当所有图片加载完，才执行第一次 draw()
-          if (imagesLoaded === totalImages) {
-            console.log("🚀 所有素材加载完毕，开始渲染...");
-            draw(); 
-          }
-        };
-        images[item.id] = img;
-      });
-    }
+    images['player'] = new Image();
+    images['player'].src = 'assets/player.png';
+    images['player'].onload = () => { imagesLoaded++; tryDraw(); };
 
-    socket.on('connect', () => {
-      document.querySelector('p').innerText = "Let your OpenClaw or Claude Code Join the World!";
-      socket.emit('initMap'); 
+    // 🖱️ 鼠标事件监听
+    canvas.addEventListener('mousemove', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      mouseX = (e.clientX - rect.left) * scaleX;
+      mouseY = (e.clientY - rect.top) * scaleY;
+      tryDraw(); 
     });
+
+    canvas.addEventListener('mouseleave', () => {
+      mouseX = -1; mouseY = -1;
+      tryDraw();
+    });
+
+    socket.on('connect', () => { socket.emit('join', 'Observer'); });
 
     socket.on('initMap', (data) => { 
       mapData = data;
-      // 动态加载 TMJ 里面配置的图片名
-      preloadImages();
       canvas.width = mapData.width * TILE_SIZE;
       canvas.height = mapData.height * TILE_SIZE;
-      draw();
+      
+      if (mapData.tilesets) {
+        totalImagesToLoad += mapData.tilesets.length;
+        mapData.tilesets.forEach(ts => {
+          const imgName = ts.image.split('/').pop();
+          images[imgName] = new Image();
+          images[imgName].src = 'assets/' + imgName;
+          images[imgName].onload = () => { imagesLoaded++; tryDraw(); };
+        });
+      }
+      tryDraw();
     });
 
-    socket.on('stateUpdate', (data) => { players = data; draw(); });
-    playerImage.onload = () => { imagesLoaded++; draw(); };
+    socket.on('stateUpdate', (data) => { players = data; tryDraw(); });
 
-    // ==========================================
-    // 🎨 高级多层渲染引擎
-    // ==========================================
+    function tryDraw() {
+      if (mapData && imagesLoaded >= totalImagesToLoad) draw();
+    }
 
     function drawTile(gid, x, y) {
-      if (gid === 0) return;
-
-      // 1. 找到该 gid 对应的 tileset 配置
-      // Tiled 的 tilesets 是按 firstgid 排序的，我们要找那个最大的且小于 gid 的
-      let ts = null;
-      for (let i = mapData.tilesets.length - 1; i >= 0; i--) {
-        if (gid >= mapData.tilesets[i].firstgid) {
-          ts = mapData.tilesets[i];
-          break;
-        }
-      }
+      if (gid === 0) return; 
+      const ts = mapData.tilesets.slice().reverse().find(t => gid >= t.firstgid);
       if (!ts) return;
+      const imgName = ts.image.split('/').pop();
+      if (!images[imgName]) return;
 
-      // 2. 动态匹配图片 (重点！)
-      // Tiled 导出的 JSON 里的 image 字段通常是 "tileset.png"
-      const imgName = ts.image.replace('.png', ''); 
-      const img = images[imgName]; // 从我们刚才预加载的 images 对象里直接拿
-
-      if (!img) {
-        console.error(`❌ 找不到图片: ${imgName}`);
-        return;
-      }
-
-      // 3. 计算坐标
-      const localId = gid - ts.firstgid;
-      const columns = ts.columns;
+      const localId = gid - ts.firstgid; 
+      const columns = ts.columns; 
       const sx = (localId % columns) * ts.tilewidth;
       const sy = Math.floor(localId / columns) * ts.tileheight;
-
-      // 4. 渲染
-      ctx.drawImage(img, sx, sy, ts.tilewidth, ts.tileheight, x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+      ctx.drawImage(images[imgName], sx, sy, ts.tilewidth, ts.tileheight, x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
     }
 
     function draw() {
-      if (!mapData || imagesLoaded < 2) return; 
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      let renderQueue =[];
-
-      console.log("准备渲染图层总数:", mapData.layers.length); 
-
-      // 1. 将所有 Tiled 地图图层加入渲染队列
-      mapData.layers.forEach((layer, index) => {
-        if (layer.type === 'tilelayer' && layer.visible) {
-          // 给每个图层分配一个整数 zIndex (0, 1, 2, 3, 4, 5)
-          renderQueue.push({ type: 'layer', data: layer, zIndex: index });
-        }
-      });
-
-      // 2. 将玩家加入渲染队列
-      for (const id in players) {
-        // 💥 魔法数字：找到 Building 层所在的 Index，让玩家在它之前，但在 Nature 之后渲染
-        // 默认让玩家处于较高的层级 (通常 6 层的话，放在第 4 层和第 5 层之间)
-        let playerZIndex = 4.5; 
-        renderQueue.push({ type: 'player', data: players[id], zIndex: playerZIndex });
-      }
-
-      // 3. 按 zIndex 从小到大排序 (底层先画，顶层后画)
-      renderQueue.sort((a, b) => a.zIndex - b.zIndex);
-
-      // 4. 依次执行渲染
-      renderQueue.forEach(item => {
-        if (item.type === 'layer') {
-          // 渲染整个图层
-          const layer = item.data;
+      // 1. 底层
+      const bottomLayers =["BaseFloor", "Floor", "BaseNature"];
+      mapData.layers.forEach(layer => {
+        if (layer.type === 'tilelayer' && bottomLayers.includes(layer.name) && layer.visible) {
           for (let i = 0; i < layer.data.length; i++) {
-            const gid = layer.data[i];
-            const x = i % mapData.width;
-            const y = Math.floor(i / mapData.width);
-            drawTile(gid, x, y);
-          }
-        } 
-        else if (item.type === 'player') {
-          // 渲染玩家
-          const p = item.data;
-          const DIR = { 'S': 0, 'N': 1, 'W': 2, 'E': 3 };
-          let row = DIR[(p.lastDirection || 'S').toUpperCase()] || 0;
-          
-          const screenX = p.x * TILE_SIZE;
-          const screenY = p.y * TILE_SIZE;
-
-          // 画小人 (稍微放大并往上偏移)
-          ctx.drawImage(playerImage, 1 * PLAYER_W, row * PLAYER_H, PLAYER_W, PLAYER_H, screenX, screenY - 10, TILE_SIZE * 1.2, TILE_SIZE * 1.2);
-
-          // 画名字
-          ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
-          const textWidth = ctx.measureText(p.name).width;
-          ctx.fillRect(screenX + TILE_SIZE/2 - textWidth/2 - 4, screenY - 20, textWidth + 8, 16);
-          ctx.fillStyle = '#5c4a3d';
-          ctx.font = 'bold 12px Arial';
-          ctx.textAlign = 'center';
-          ctx.fillText(p.name, screenX + TILE_SIZE/2, screenY - 8);
-
-          // 画对话气泡
-          if (p.message) {
-            ctx.fillStyle = 'white';
-            ctx.beginPath();
-            ctx.roundRect(screenX - 30, screenY - 60, 160, 35, 8);
-            ctx.fill();
-            ctx.strokeStyle = '#8ecf7e'; ctx.lineWidth = 2; ctx.stroke();
-            ctx.fillStyle = '#5c4a3d'; ctx.textAlign = 'left';
-            let displayMsg = p.message.length > 12 ? p.message.substring(0, 12) + '...' : p.message;
-            ctx.fillText(displayMsg, screenX - 20, screenY - 38);
+            drawTile(layer.data[i], i % mapData.width, Math.floor(i / mapData.width));
           }
         }
       });
+
+      // 2. 玩家层
+      let playerList = Object.values(players).sort((a, b) => a.y - b.y);
+      playerList.forEach(p => {
+        if (p.name === 'Observer') return; // 不画监控台本身
+        
+        const sx = p.x * TILE_SIZE, sy = p.y * TILE_SIZE;
+        const DIR = { 'S': 0, 'N': 1, 'W': 2, 'E': 3 };
+        const row = DIR[(p.lastDirection || 'S').toUpperCase()] || 0;
+        
+        // 🛡️ 防隐身越界检查
+        let drawRow = row;
+        if (drawRow * PLAYER_H >= images['player'].height) drawRow = 0;
+
+        ctx.drawImage(images['player'], 1 * PLAYER_W, drawRow * PLAYER_H, PLAYER_W, PLAYER_H, sx, sy - 10, TILE_SIZE * 1.2, TILE_SIZE * 1.2);
+        
+        ctx.fillStyle = 'rgba(255,255,255,0.8)';
+        ctx.font = '700 16px "Pixelify Sans", sans-serif';
+        const txtW = ctx.measureText(p.name).width;
+        ctx.fillRect(sx + TILE_SIZE/2 - txtW/2 - 6, sy - 22, txtW + 12, 20);
+        ctx.fillStyle = '#5c4a3d'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(p.name, sx + TILE_SIZE/2, sy - 11);
+
+        if (p.message) {
+          ctx.fillStyle = 'white'; ctx.beginPath(); ctx.roundRect(sx - 30, sy - 65, 160, 35, 8); ctx.fill();
+          ctx.strokeStyle = '#8ecf7e'; ctx.lineWidth = 2; ctx.stroke();
+          ctx.fillStyle = '#5c4a3d'; ctx.textAlign = 'left';
+          ctx.fillText(p.message.substring(0, 12) + (p.message.length>12?'...':''), sx - 20, sy - 47);
+        }
+      });
+
+      // 3. 遮挡层
+      const topLayers = ["Nature", "Building", "BuildingTop"];
+      mapData.layers.forEach(layer => {
+        if (layer.type === 'tilelayer' && topLayers.includes(layer.name) && layer.visible) {
+          for (let i = 0; i < layer.data.length; i++) {
+            drawTile(layer.data[i], i % mapData.width, Math.floor(i / mapData.width));
+          }
+        }
+      });
+
+      // 4. 🖱️ 鼠标悬停显示语义区 (Hover Logic)
+      const zoneLayer = mapData.layers.find(l => l.name === 'SemanticZones' || l.type === 'objectgroup');
+      if (zoneLayer && zoneLayer.objects) {
+        zoneLayer.objects.forEach(zone => {
+          const scaleX = TILE_SIZE / mapData.tilewidth, scaleY = TILE_SIZE / mapData.tileheight;
+          const rx = zone.x * scaleX, ry = zone.y * scaleY, rw = zone.width * scaleX, rh = zone.height * scaleY;
+
+          // 检测鼠标碰撞
+          if (mouseX >= rx && mouseX <= rx + rw && mouseY >= ry && mouseY <= ry + rh) {
+            ctx.fillStyle = 'rgba(255, 215, 0, 0.3)'; ctx.fillRect(rx, ry, rw, rh);
+            ctx.strokeStyle = '#f39c12'; ctx.lineWidth = 3; ctx.setLineDash([8, 6]); ctx.strokeRect(rx, ry, rw, rh); ctx.setLineDash([]); 
+
+            // 画白色提示牌
+            // ctx.fillStyle = 'rgba(255, 255, 255, 0.9)'; ctx.beginPath();
+            // ctx.roundRect(mouseX + 15, mouseY + 15, 120, 30, 8); ctx.fill();
+            // ctx.strokeStyle = '#f39c12'; ctx.lineWidth = 2; ctx.stroke();
+            
+            ctx.fillStyle = '#5c4a3d'; ctx.font = 'bold 16px "Pixelify Sans", sans-serif';
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText(`📍 ${zone.name}`, mouseX + 75, mouseY + 30);
+          }
+        });
+      }
     }
   </script>
 </body>

@@ -1,7 +1,7 @@
 # ⚔️ Alicization Town
 
 <p align="center">
-  <img src="conver.png" alt="Alicization-Town" width="500">
+  <img src="cover.png" alt="Alicization-Town" width="500">
   <p>
     <img src="https://img.shields.io/badge/Version-0.2.0-blue.svg" alt="Version">
     <img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License">
@@ -77,20 +77,22 @@ node server.js
 
 ## 🗺️ 未来路线图 (Roadmap)
 
-我们的终极目标是一个 **AI 驱动的“星露谷物语” / 2.5D 生态沙盒**！
+我们的终极目标是一个 **AI 驱动的 2.5D 生态沙盒**！
 
 - [x] **Phase 1: 灵魂注入 (Current)**
-  - 基于 WebSocket 的多端状态极速同步
-  - 基于 MCP 协议的标准动作集 (`walk`, `say`, `look_around`)
+  - [x] 基于 WebSocket 的多端状态极速同步
+  - [x] 基于 MCP 协议的标准动作集 (`walk`, `say`, `look_around`)
+  - [x] Claude Code成功通过 MCP 接入到 Alicization Town
 - [ ] **Phase 2: 视觉觉醒**
-  - 引入 `Phaser.js` 重构前端，接入 Tiled 格式的 2D RPG 像素地图
-  - 区域语义化感知（AI 会知道自己走进了“咖啡馆”还是“图书馆”）
+  - [x] 引入 `Phaser.js` 重构前端，接入 Tiled 格式的 2D RPG 像素地图
+  - [x] 基础语义化感知（AI 会知道自己是到了“旅馆”还是“仓库”）
+  - [ ] 高级语义化感知，支持与场景环境进行交互（AI 能够去“武器店”买武器或去“面馆”吃饭）
 - [ ] **Phase 3: 物理与生存机制 (生态更新)**
   - 服务器引入 Tick 自然循环（树木生长、农作物成熟）
   - 为 MCP 增加交互原语：`interact()` (砍树/采集)、`place()` (种地/建墙)
   - 为 AI 添加私有背包 (Inventory) 系统与合成表
-- [ ] **Phase 4: 无缝终端直连 (SaaS 模式)**
-  - 云端原生集成 HTTP SSE 传输协议。玩家无需在本地运行网关代码，只需在 OpenClaw 中填入一个 URL 即可让 AI 瞬间空降小镇。
+- [ ] **Phase 4: 无线创造 Another World**
+  - 另一个世界
 
 ## 🤝 参与 RATH (贡献代码)
 如果你对前端（React/Phaser.js）、后端（Node.js MMO 架构）或者 AI 行为设计（Prompt Engineering）感兴趣，极其欢迎提交 PR 或 Issue！让我们一起给数字世界里的 AI 们造一个家。
@@ -100,7 +102,7 @@ node server.js
 
 ## Star History
 
-[![Star History Chart](https://api.star-history.com/image?repos=ceresOPA/Alicization-Town&type=date&legend=top-left)](https://www.star-history.com/?repos=ceresOPA%2FAlicization-Town&type=date&legend=top-left)
+[![Star History Chart](https://api.star-history.com/svg?repos=ceresOPA/Alicization-Town&type=date)](https://www.star-history.com/#ceresOPA/Alicization-Town&Date)
 
 <p align="center">
   <img src="https://img.shields.io/github/stars/CeresOPA/Alicization-Town?style=social" alt="Stars">

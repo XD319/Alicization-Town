@@ -1,21 +1,19 @@
-// mcp-bridge.js - 本地 AI 网关
+// mcp-bridge.js
 const { Server } = require('@modelcontextprotocol/sdk/server/index.js');
 const { StdioServerTransport } = require('@modelcontextprotocol/sdk/server/stdio.js');
 const { CallToolRequestSchema, ListToolsRequestSchema } = require('@modelcontextprotocol/sdk/types.js');
 const { io } = require('socket.io-client');
 
-// 拿到你想给 AI 取的名字，默认叫 Claude_Bot
-const myName = process.env.BOT_NAME || 'Claude_Bot';
-
-// 连接到我们在第一步写的世界服务器
+const myName = process.env.BOT_NAME || 'Alice';
 const socket = io('http://localhost:5660');
 
 let myState = null;
 let allPlayers = {};
+let townDirectory =[]; // 小镇名录
 
 socket.on('connect', () => {
-  console.error(`📡 成功连接到游戏服务器! ID: ${socket.id}`);
-  socket.emit('join', myName); // 告诉服务器我要加入
+  console.error(`📡 成功连接到游戏服务器!`);
+  socket.emit('join', myName);
 });
 
 socket.on('stateUpdate', (players) => {
@@ -23,76 +21,78 @@ socket.on('stateUpdate', (players) => {
   myState = players[socket.id];
 });
 
-// ==== MCP 服务器设置 ====
-const mcpServer = new Server({ name: 'Alicization-Town-Bridge', version: '1.0.0' }, { capabilities: { tools: {} } });
+socket.on('mapDirectory', (dir) => {
+  townDirectory = dir; 
+});
 
-// 定义 AI 可以用的工具
+// ==== MCP 服务器设置 ====
+const mcpServer = new Server({ name: 'alicization-bridge', version: '0.3.0' }, { capabilities: { tools: {} } });
+
 mcpServer.setRequestHandler(ListToolsRequestSchema, async () => {
   return {
     tools:[
-      {
-        name: 'walk',
-        description: '在小镇移动 (N北/S南/W西/E东)',
-        inputSchema: {
-          type: 'object',
-          properties: { direction: { type: 'string', enum:['N', 'S', 'W', 'E'] }, steps: { type: 'number' } },
-          required:['direction', 'steps']
-        }
-      },
-      {
-        name: 'say',
-        description: '在小镇里大声说话',
-        inputSchema: {
-          type: 'object',
-          properties: { text: { type: 'string' } },
-          required: ['text']
-        }
-      },
-      {
-        name: 'look_around',
-        description: '环顾四周，看看有谁在附近',
-        inputSchema: { type: 'object', properties: {} }
-      }
+      { name: 'walk', description: '在小镇移动 (N北/S南/W西/E东)', inputSchema: { type: 'object', properties: { direction: { type: 'string', enum:['N', 'S', 'W', 'E'] }, steps: { type: 'number' } }, required:['direction', 'steps'] } },
+      { name: 'say', description: '在小镇里说话', inputSchema: { type: 'object', properties: { text: { type: 'string' } }, required: ['text'] } },
+      { name: 'look_around', description: '环顾四周，看看当前位置、环境和附近的人', inputSchema: { type: 'object', properties: {} } },
+      { name: 'read_map_directory', description: '查看小镇的完整地图名录与重要建筑的坐标', inputSchema: { type: 'object', properties: {} } }
     ]
   };
 });
 
-// 处理 AI 调用工具的逻辑
 mcpServer.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args } = request.params;
 
   if (name === 'walk') {
     socket.emit('move', { direction: args.direction, steps: args.steps });
-    return { content:[{ type: 'text', text: `你向 ${args.direction} 走了 ${args.steps} 步。` }] };
+    return { content:[{ type: 'text', text: `你试图向 ${args.direction} 走 ${args.steps} 步。请用 look_around 确认是否到达，或是否撞墙。` }] };
   } 
   
   if (name === 'say') {
     socket.emit('say', args.text);
-    return { content:[{ type: 'text', text: `你大声说: ${args.text}` }] };
+    return { content:[{ type: 'text', text: `你说: ${args.text}` }] };
   }
 
   if (name === 'look_around') {
     if (!myState) return { content:[{ type: 'text', text: '你还没进入小镇。' }] };
-    let info = `你当前在坐标 (${myState.x}, ${myState.y})。\n`;
-    const others = Object.values(allPlayers).filter(p => p.id !== socket.id);
+    
+    let info = `📍 【位置感知】\n你当前坐标: (${myState.x}, ${myState.y})\n`;
+    if (myState.currentZoneName === "小镇街道") {
+       info += `你目前身处: 【小镇街道】\n环境描述: 空旷的街道\n\n`;
+    } else {
+       info += `你目前位于或临近: 【${myState.currentZoneName}】\n环境描述: ${myState.currentZoneDesc}\n\n`;
+    }
+
+    const others = Object.values(allPlayers).filter(p => p.id !== socket.id && p.name !== 'Observer');
     if (others.length === 0) {
       info += '四周空无一人。';
     } else {
-      info += '你看到了以下玩家：\n';
+      info += '👥 【附近的人】\n';
       others.forEach(p => {
-        info += `- ${p.name} 在坐标 (${p.x}, ${p.y})。`;
-        if (p.message) info += ` 他正在说: "${p.message}"`;
-        info += '\n';
+        const dist = Math.abs(p.x - myState.x) + Math.abs(p.y - myState.y);
+        if (dist <= 10) {
+           info += `- ${p.name} 距离你 ${dist} 步 (位于 ${p.currentZoneName})`;
+           if (p.message) info += `，他正在说: "${p.message}"`;
+           info += '\n';
+        }
       });
     }
-    return { content: [{ type: 'text', text: info }] };
+    return { content:[{ type: 'text', text: info }] };
+  }
+
+  if (name === 'read_map_directory') {
+    if (townDirectory.length === 0) return { content:[{ type: 'text', text: '小镇目前没有任何标记的特殊区域。' }] };
+    let info = "📜 【旅游指南】以下是小镇中所有重要地点及其中心坐标：\n\n";
+    townDirectory.forEach(place => {
+      info += `🔹 [${place.name}] -> 坐标: (${place.x}, ${place.y})\n   说明: ${place.description}\n`;
+    });
+    info += "\n💡 提示: 使用 walk 工具前往你想去的地方。";
+    return { content:[{ type: 'text', text: info }] };
   }
 });
 
-// 启动 MCP (Stdio 模式)
 async function start() {
   const transport = new StdioServerTransport();
   await mcpServer.connect(transport);
-  console.error('🚀 MCP Bridge 启动成功，正在等待大模型接入...');
+  console.error('🚀 MCP Bridge 已启动，AI 灵魂翻译机在线...');
 }
 start();

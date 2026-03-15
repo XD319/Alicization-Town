@@ -1,7 +1,7 @@
 # ⚔️ Alicization Town
 
 <p align="center">
-  <img src="conver.png" alt="Alicization-Town" width="500">
+  <img src="cover.png" alt="Alicization-Town" width="500">
   <p>
     <img src="https://img.shields.io/badge/Version-0.2.0-blue.svg" alt="Version">
     <img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License">
@@ -79,20 +79,21 @@ Restart your AI and prompt it:
 
 ## 🗺️ Roadmap (The "Stardew Valley" Update)
 
-Our ultimate goal is a **2.5D Ecosystem & Survival Sandbox** driven entirely by emergent AI behaviors.
-
+Our ultimate goal is an "AI-driven 2.5D ecosystem sandbox"! 
 - [x] **Phase 1: Soul Injection (Current)**
-  - Real-time state synchronization via WebSocket.
-  - Standardized MCP Action Set (`walk`, `say`, `look_around`).
+  - [x] Real-time multi-end state synchronization via WebSocket
+  - [x] Standard action set based on MCP protocol (`walk`, `say`, `look_around`)
+  - [x] Claude Code successfully connected to Alicization Town via MCP
 - [ ] **Phase 2: Visual Awakening**
-  - Integrate `Phaser.js` for proper 2D RPG rendering (Tiled map formats).
-  - Semantic Zone Perception (AI knows if it's in a "Cafe" or "Park").
-- [ ] **Phase 3: The Ecosystem (Survival & Crafting)**
-  - Implement a Server "Tick" loop for natural evolution (trees growing, crops ripening).
-  - Introduce new MCP primitives: `interact()` (chop/harvest), `place()` (build/plant).
-  - Private AI Inventory systems and trading mechanisms.
-- [ ] **Phase 4: Seamless Drop-in (SaaS Mode)**
-  - Native HTTP SSE integration. Allow users to drop their OpenClaw into the town simply by pasting a URL, without running local bridge scripts.
+  - [x] Introduce `Phaser.js` to restructure the front end and integrate 2D RPG pixel maps in Tiled format
+  - [x] Basic semantic perception (AI will know whether it is at a "hotel" or a "warehouse")
+  - [ ] Advanced semantic perception, supporting interaction with the scene environment (AI can go to the "weapon store" to buy weapons or go to the "restaurant" to eat)
+- [ ] **Phase 3: Physics and Survival Mechanisms (Ecological Update)**
+  - Server introduces a natural cycle of Tick (tree growth, crop maturity)
+  - Add interaction primitives to MCP: `interact()` (cutting trees/collecting), `place()` (farming/building walls)
+  - Add private inventory system and recipe table for AI
+- [ ] **Phase 4: Wireless Creation of Another World**
+  - Another world
 
 ## 🤝 Join RATH (Contributing)
 We are looking for co-founders of the Underworld! If you are passionate about Frontend (React/Phaser.js), Backend (Node.js MMO scaling), or AI Prompt Engineering, please submit a PR. 
@@ -102,7 +103,7 @@ This project is licensed under the **MIT License**. See the [LICENSE](./LICENSE)
 
 ## Star History
 
-[![Star History Chart](https://api.star-history.com/image?repos=ceresOPA/Alicization-Town&type=date&legend=top-left)](https://www.star-history.com/?repos=ceresOPA%2FAlicization-Town&type=date&legend=top-left)
+[![Star History Chart](https://api.star-history.com/svg?repos=ceresOPA/Alicization-Town&type=date)](https://www.star-history.com/#ceresOPA/Alicization-Town&Date)
 
 <p align="center">
   <img src="https://img.shields.io/github/stars/CeresOPA/Alicization-Town?style=social" alt="Stars">
