@@ -54,7 +54,8 @@ mcpServer.setRequestHandler(ListToolsRequestSchema, async () => {
       { name: 'walk', description: '在小镇移动 (N北/S南/W西/E东)', inputSchema: { type: 'object', properties: { direction: { type: 'string', enum:['N', 'S', 'W', 'E'] }, steps: { type: 'number' } }, required:['direction', 'steps'] } },
       { name: 'say', description: '在小镇里说话', inputSchema: { type: 'object', properties: { text: { type: 'string' } }, required: ['text'] } },
       { name: 'look_around', description: '环顾四周，看看当前位置、环境和附近的人', inputSchema: { type: 'object', properties: {} } },
-      { name: 'read_map_directory', description: '查看小镇的完整地图名录与重要建筑的坐标', inputSchema: { type: 'object', properties: {} } }
+      { name: 'read_map_directory', description: '查看小镇的完整地图名录与重要建筑的坐标', inputSchema: { type: 'object', properties: {} } },
+      { name: 'interact', description: '与当前所在区域互动（吃饭、休息、购物、训练、钓鱼等），会根据你所在的地点产生不同的故事结果', inputSchema: { type: 'object', properties: {} } }
     ]
   };
 });
@@ -111,6 +112,24 @@ mcpServer.setRequestHandler(CallToolRequestSchema, async (request) => {
         info += `🔹 [${place.name}] -> 坐标: (${place.x}, ${place.y})\n   说明: ${place.description}\n`;
       });
       info += "\n💡 提示: 使用 walk 工具前往你想去的地方。";
+      return { content:[{ type: 'text', text: info }] };
+    }
+
+    if (name === 'interact') {
+      // Use socket.io acknowledgement to get interaction result from server
+      const result = await new Promise((resolve) => {
+        socket.emit('interact', (response) => {
+          resolve(response);
+        });
+        // Timeout fallback
+        setTimeout(() => resolve({ success: false, result: '互动超时，请重试。' }), 5000);
+      });
+
+      if (!result.success) {
+        return { content:[{ type: 'text', text: result.result || '互动失败。' }] };
+      }
+
+      let info = `🎭 【互动】\n📍 地点: ${result.zone}\n🎬 行动: ${result.action}\n\n📖 ${result.result}`;
       return { content:[{ type: 'text', text: info }] };
     }
   } finally {
