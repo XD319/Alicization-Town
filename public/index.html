@@ -18,18 +18,37 @@
 
     #main-layout { display: flex; gap: 10px; align-items: flex-start; }
 
-    #game-container { position: relative; display: inline-block; flex-shrink: 0; }
-    canvas {
+    #game-container { position: relative; display: inline-block; flex-shrink: 0; overflow: hidden; }
+    #gameCanvas {
       background-color: #a4d460;
       border: 6px solid #c8a165;
       border-radius: 10px;
       box-shadow: 0 8px 20px rgba(0,0,0,0.4);
       image-rendering: pixelated;
-      cursor: crosshair;
+      cursor: grab;
+    }
+    #gameCanvas.dragging { cursor: grabbing; }
+    canvas#minimapCanvas {
+      image-rendering: pixelated;
     }
     #toolbar {
       position: absolute; top: 8px; right: 8px; display: flex; gap: 6px; z-index: 10;
     }
+    #zoom-controls {
+      position: absolute; bottom: 12px; right: 12px; display: flex; gap: 4px; z-index: 10;
+    }
+    .zoom-btn {
+      background: rgba(255,255,255,0.88); border: 2px solid #c8a165;
+      border-radius: 8px; padding: 4px 10px; font-family: 'Pixelify Sans', sans-serif;
+      font-size: 16px; cursor: pointer; color: #5c4a3d; transition: background 0.2s;
+      line-height: 1;
+    }
+    .zoom-btn:hover { background: rgba(255,255,255,1); }
+    #panel-toggle-bar {
+      position: absolute; top: 8px; left: 8px; display: flex; gap: 4px; z-index: 10; flex-wrap: wrap; max-width: 180px;
+    }
+    /* keep time display after toggle bar */
+    #time-display { left: auto !important; right: 120px; }
     .tool-btn {
       background: rgba(255,255,255,0.88); border: 2px solid #c8a165;
       border-radius: 8px; padding: 5px 10px; font-family: 'Pixelify Sans', sans-serif;
@@ -42,10 +61,12 @@
       padding: 4px 10px; font-size: 14px; font-family: 'Pixelify Sans', sans-serif;
     }
 
-    /* Side panel: chat log + mini-map + AI panel */
+    /* Side panel */
     #side-panel {
       width: 280px; display: flex; flex-direction: column; gap: 8px; flex-shrink: 0;
+      transition: width 0.3s, opacity 0.3s;
     }
+    #side-panel.collapsed { width: 0; opacity: 0; overflow: hidden; pointer-events: none; }
     #minimap-container {
       background: rgba(40,40,60,0.9); border: 3px solid #c8a165;
       border-radius: 10px; padding: 8px; text-align: center;
@@ -130,11 +151,19 @@
 
   <div id="main-layout">
     <div id="game-container">
+      <div id="panel-toggle-bar">
+        <button class="tool-btn" id="toggle-side-panel" title="Toggle Side Panel">Panel</button>
+      </div>
       <div id="time-display">06:00</div>
       <div id="toolbar">
         <button class="tool-btn" id="music-toggle">Music OFF</button>
       </div>
-      <canvas id="gameCanvas" width="800" height="600"></canvas>
+      <canvas id="gameCanvas" width="800" height="560"></canvas>
+      <div id="zoom-controls">
+        <button class="zoom-btn" id="zoom-in" title="Zoom In">+</button>
+        <button class="zoom-btn" id="zoom-out" title="Zoom Out">-</button>
+        <button class="zoom-btn" id="zoom-fit" title="Fit Map">Fit</button>
+      </div>
     </div>
     <div id="side-panel">
       <div id="minimap-container">
@@ -167,6 +196,14 @@
     const miniCtx = miniCanvas.getContext('2d');
     const chatlogEl = document.getElementById('chatlog');
     const TILE_SIZE = 26;
+
+    // === Camera / Zoom state ===
+    let camX = 0, camY = 0; // top-left corner in world coords
+    let zoom = 1.0;
+    const MIN_ZOOM = 0.3, MAX_ZOOM = 2.5;
+    let isDragging = false, dragStartX = 0, dragStartY = 0, dragCamStartX = 0, dragCamStartY = 0;
+    // Viewport size (canvas pixel size stays fixed)
+    const VIEWPORT_W = 800, VIEWPORT_H = 560;
 
     let PLAYER_W = 16, PLAYER_H = 16;
     let mapData = null;
@@ -285,15 +322,87 @@
     let animDecors = [];
     let animDecorsInitialized = false;
 
-    // === Mouse events ===
+    // === Mouse events (now in world-space) ===
     canvas.addEventListener('mousemove', (e) => {
       const rect = canvas.getBoundingClientRect();
       const scaleX = canvas.width / rect.width;
       const scaleY = canvas.height / rect.height;
-      mouseX = (e.clientX - rect.left) * scaleX;
-      mouseY = (e.clientY - rect.top) * scaleY;
+      const canvasX = (e.clientX - rect.left) * scaleX;
+      const canvasY = (e.clientY - rect.top) * scaleY;
+      // Convert to world coordinates
+      mouseX = canvasX / zoom + camX;
+      mouseY = canvasY / zoom + camY;
+
+      // Dragging logic
+      if (isDragging) {
+        camX = dragCamStartX - (e.clientX - dragStartX) / zoom;
+        camY = dragCamStartY - (e.clientY - dragStartY) / zoom;
+        clampCamera();
+      }
     });
-    canvas.addEventListener('mouseleave', () => { mouseX = -1; mouseY = -1; });
+    canvas.addEventListener('mouseleave', () => { mouseX = -1; mouseY = -1; isDragging = false; canvas.classList.remove('dragging'); });
+
+    // Pan via drag
+    canvas.addEventListener('mousedown', (e) => {
+      isDragging = true; canvas.classList.add('dragging');
+      dragStartX = e.clientX; dragStartY = e.clientY;
+      dragCamStartX = camX; dragCamStartY = camY;
+    });
+    canvas.addEventListener('mouseup', () => { isDragging = false; canvas.classList.remove('dragging'); });
+
+    // Zoom via wheel
+    canvas.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const rect = canvas.getBoundingClientRect();
+      const mx = (e.clientX - rect.left) * (canvas.width / rect.width);
+      const my = (e.clientY - rect.top) * (canvas.height / rect.height);
+      // World point under mouse before zoom
+      const wx = mx / zoom + camX;
+      const wy = my / zoom + camY;
+      // Apply zoom
+      const factor = e.deltaY < 0 ? 1.12 : 0.89;
+      zoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoom * factor));
+      // Adjust camera so world point stays under mouse
+      camX = wx - mx / zoom;
+      camY = wy - my / zoom;
+      clampCamera();
+    }, { passive: false });
+
+    // Zoom buttons
+    document.getElementById('zoom-in').addEventListener('click', () => { zoomAt(1.25); });
+    document.getElementById('zoom-out').addEventListener('click', () => { zoomAt(0.8); });
+    document.getElementById('zoom-fit').addEventListener('click', () => { fitMap(); });
+    function zoomAt(factor) {
+      const cx = VIEWPORT_W / 2, cy = VIEWPORT_H / 2;
+      const wx = cx / zoom + camX, wy = cy / zoom + camY;
+      zoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoom * factor));
+      camX = wx - cx / zoom;
+      camY = wy - cy / zoom;
+      clampCamera();
+    }
+    function fitMap() {
+      if (!mapData) return;
+      const mapW = mapData.width * TILE_SIZE, mapH = mapData.height * TILE_SIZE;
+      zoom = Math.min(VIEWPORT_W / mapW, VIEWPORT_H / mapH);
+      camX = (mapW - VIEWPORT_W / zoom) / 2;
+      camY = (mapH - VIEWPORT_H / zoom) / 2;
+      clampCamera();
+    }
+    function clampCamera() {
+      if (!mapData) return;
+      const mapW = mapData.width * TILE_SIZE, mapH = mapData.height * TILE_SIZE;
+      const viewW = VIEWPORT_W / zoom, viewH = VIEWPORT_H / zoom;
+      camX = Math.max(-viewW * 0.2, Math.min(camX, mapW - viewW * 0.8));
+      camY = Math.max(-viewH * 0.2, Math.min(camY, mapH - viewH * 0.8));
+    }
+
+    // Panel toggle
+    document.getElementById('toggle-side-panel').addEventListener('click', () => {
+      const panel = document.getElementById('side-panel');
+      panel.classList.toggle('collapsed');
+      const btn = document.getElementById('toggle-side-panel');
+      btn.textContent = panel.classList.contains('collapsed') ? 'Panel +' : 'Panel';
+    });
     // === initialize() ===
     async function initialize() {
       try {
@@ -309,8 +418,10 @@
             images[imgName].onload = () => { imagesLoaded++; };
           });
         }
-        canvas.width = mapData.width * TILE_SIZE;
-        canvas.height = mapData.height * TILE_SIZE;
+        canvas.width = VIEWPORT_W;
+        canvas.height = VIEWPORT_H;
+        // Fit the map initially
+        fitMap();
 
         // SSE connection
         const eventSource = new EventSource('/events');
@@ -762,6 +873,11 @@
     function draw() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+      // Apply camera transform
+      ctx.save();
+      ctx.scale(zoom, zoom);
+      ctx.translate(-camX, -camY);
+
       // 1. Bottom layers
       const bottomLayers = ["BaseFloor", "Floor", "BaseNature"];
       mapData.layers.forEach(layer => {
@@ -921,37 +1037,45 @@
       drawParticlesOfType('leaf');
       drawParticlesOfType('firefly');
 
-      // 5. Day/night overlay
+      // End camera transform
+      ctx.restore();
+
+      // 5. Day/night overlay (screen space)
       const overlay = getDayNightOverlay();
       if (overlay.a > 0) {
         ctx.fillStyle = `rgba(${overlay.r}, ${overlay.g}, ${overlay.b}, ${overlay.a})`;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
       }
 
-      // 6. Mouse hover zone tooltip
-      const zoneLayer = mapData.layers.find(l => l.name === 'SemanticZones' || l.type === 'objectgroup');
-      if (zoneLayer && zoneLayer.objects) {
-        zoneLayer.objects.forEach(zone => {
+      // 6. Mouse hover zone tooltip (screen space)
+      if (mouseX >= 0 && mouseY >= 0) {
+        const zoneLayer = mapData.layers.find(l => l.name === 'SemanticZones' || l.type === 'objectgroup');
+        if (zoneLayer && zoneLayer.objects) {
           const scaleX = TILE_SIZE / mapData.tilewidth, scaleY = TILE_SIZE / mapData.tileheight;
-          const rx = zone.x * scaleX, ry = zone.y * scaleY;
-          const rw = zone.width * scaleX, rh = zone.height * scaleY;
-          if (mouseX >= rx && mouseX <= rx + rw && mouseY >= ry && mouseY <= ry + rh) {
-            ctx.font = 'bold 16px "Pixelify Sans", sans-serif';
-            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-            const labelText = zone.name;
-            const textWidth = ctx.measureText(labelText).width;
-            const padding = 20;
-            const rectW = textWidth + padding;
-            const rectH = 35;
-            const rectX = mouseX - 15;
-            const rectY = mouseY - 30;
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.92)';
-            ctx.beginPath(); ctx.roundRect(rectX, rectY, rectW, rectH, 8); ctx.fill();
-            ctx.strokeStyle = '#f39c12'; ctx.lineWidth = 2; ctx.stroke();
-            ctx.fillStyle = '#5c4a3d';
-            ctx.fillText(labelText, rectX + rectW / 2, rectY + rectH / 2);
-          }
-        });
+          zoneLayer.objects.forEach(zone => {
+            const rx = zone.x * scaleX, ry = zone.y * scaleY;
+            const rw = zone.width * scaleX, rh = zone.height * scaleY;
+            if (mouseX >= rx && mouseX <= rx + rw && mouseY >= ry && mouseY <= ry + rh) {
+              // Convert to screen coords for tooltip
+              const screenX = (mouseX - camX) * zoom;
+              const screenY = (mouseY - camY) * zoom;
+              ctx.font = `bold ${Math.max(12, 16 * Math.min(zoom, 1.2))}px "Pixelify Sans", sans-serif`;
+              ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+              const labelText = zone.name;
+              const textWidth = ctx.measureText(labelText).width;
+              const padding = 20;
+              const rectW = textWidth + padding;
+              const rectH = 35;
+              const rectX = screenX - 15;
+              const rectY = screenY - 40;
+              ctx.fillStyle = 'rgba(255, 255, 255, 0.92)';
+              ctx.beginPath(); ctx.roundRect(rectX, rectY, rectW, rectH, 8); ctx.fill();
+              ctx.strokeStyle = '#f39c12'; ctx.lineWidth = 2; ctx.stroke();
+              ctx.fillStyle = '#5c4a3d';
+              ctx.fillText(labelText, rectX + rectW / 2, rectY + rectH / 2);
+            }
+          });
+        }
       }
     }
 
@@ -1143,8 +1267,9 @@
             renderActivityLog(p.id);
             // Center camera on this player
             if (p.displayX !== undefined) {
-              const camX = p.displayX - canvas.width / 2;
-              const camY = p.displayY - canvas.height / 2;
+              camX = p.displayX - VIEWPORT_W / zoom / 2;
+              camY = p.displayY - VIEWPORT_H / zoom / 2;
+              clampCamera();
               // Highlight with a flash
               selectedFlashTime = Date.now();
             }
