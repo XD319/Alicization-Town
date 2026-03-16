@@ -236,7 +236,7 @@ io.on('connection', (socket) => {
     const zone = getZoneAt(spawnX, spawnY);
     
     gameState.players[socket.id] = {
-      id: socket.id, name: name, x: spawnX, y: spawnY, lastDirection: 'S', message: '', isThinking: false,
+      id: socket.id, name: name, x: spawnX, y: spawnY, lastDirection: 'S', message: '', interactionText: '', isThinking: false,
       currentZoneName: zone ? zone.name : "小镇街道",
       currentZoneDesc: zone ? (zone.properties?.find(p => p.name === 'description')?.value || '') : "空旷的街道"
     };
@@ -319,7 +319,21 @@ io.on('connection', (socket) => {
     const zone = getZoneAt(player.x, player.y);
     const interaction = getInteractionForZone(zone);
 
-    // Broadcast interaction event
+    // Set interaction bubble on player (visible to web viewers)
+    player.interactionText = interaction.action;
+    io.emit('stateUpdate', gameState.players);
+    broadcastStateToWeb();
+
+    // Clear interaction bubble after 4 seconds
+    setTimeout(() => {
+      if (gameState.players[socket.id]) {
+        gameState.players[socket.id].interactionText = '';
+        io.emit('stateUpdate', gameState.players);
+        broadcastStateToWeb();
+      }
+    }, 4000);
+
+    // Broadcast interaction event to chat log
     const entry = {
       time: Date.now(),
       name: player.name,

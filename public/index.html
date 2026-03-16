@@ -115,7 +115,7 @@
 
     // === PLACEHOLDER: Day/night cycle state ===
     let gameTime = 6 * 60; // minutes since midnight, start at 6:00 AM
-    const TIME_SPEED = 0.05; // game minutes per real second
+    const TIME_SPEED = 0.5; // game minutes per real second
 
     // === PLACEHOLDER: Particle system ===
     let particles = [];
@@ -187,6 +187,7 @@
               clientPlayers[id].targetY = sp.y * TILE_SIZE;
               clientPlayers[id].lastDirection = sp.lastDirection;
               clientPlayers[id].message = sp.message;
+              clientPlayers[id].interactionText = sp.interactionText;
               clientPlayers[id].name = sp.name;
               clientPlayers[id].isThinking = sp.isThinking;
             }
@@ -406,7 +407,6 @@
       }
     }
 
-    function drawParticlesPlaceholder_removed() {} // particles drawn inline by drawParticlesOfType
     // === drawTile() ===
     function drawTile(gid, x, y) {
       if (gid === 0) return;
@@ -461,7 +461,7 @@
         ctx.fillStyle = p.name === 'Observer' ? '#f1c40f' : '#ffffff';
         ctx.fillText(p.name, centerX, nameY);
 
-        // Thought / chat bubbles
+        // Thought / chat / interaction bubbles
         const bubbleY = sy - 27 + floatY;
         if (p.isThinking) {
           ctx.beginPath();
@@ -476,6 +476,29 @@
           ctx.fillStyle = '#576574';
           const icons = ['...', '?', '!'];
           ctx.fillText(icons[Math.floor(Date.now() / 800) % icons.length], centerX, bubbleY - 10);
+        } else if (p.interactionText) {
+          // Interaction bubble - golden style
+          const actText = p.interactionText.length > 20 ? p.interactionText.substring(0, 20) + '...' : p.interactionText;
+          ctx.font = '400 13px "Pixelify Sans", sans-serif';
+          const actWidth = ctx.measureText(actText).width;
+          const iconWidth = ctx.measureText('* ').width;
+          const bubblePad = 14;
+          const bubbleW = actWidth + iconWidth + bubblePad * 2;
+          const bubbleH = 30;
+          const bubbleX = centerX - bubbleW / 2;
+          const bubbleYpos = sy - 65 + floatY;
+          // Bubble background with golden gradient effect
+          ctx.fillStyle = 'rgba(255, 250, 230, 0.96)'; ctx.beginPath(); ctx.roundRect(bubbleX, bubbleYpos, bubbleW, bubbleH, 8); ctx.fill();
+          ctx.strokeStyle = '#f39c12'; ctx.lineWidth = 2; ctx.stroke();
+          // Star icon
+          ctx.font = 'bold 14px "Pixelify Sans", sans-serif';
+          ctx.fillStyle = '#f39c12'; ctx.textAlign = 'left';
+          ctx.fillText('*', bubbleX + bubblePad - 2, bubbleYpos + bubbleH / 2 + 1);
+          // Action text
+          ctx.font = '400 13px "Pixelify Sans", sans-serif';
+          ctx.fillStyle = '#8B6914'; ctx.textAlign = 'left';
+          ctx.fillText(actText, bubbleX + bubblePad + iconWidth - 2, bubbleYpos + bubbleH / 2 + 1);
+          ctx.textAlign = 'center'; // reset
         } else if (p.message) {
           const msgText = p.message.length > 30 ? p.message.substring(0, 30) + '...' : p.message;
           ctx.font = '400 14px "Pixelify Sans", sans-serif';
@@ -663,5 +686,6 @@
     // Boot
     initialize();
   </script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/v8c78df7c7c0f484497ecbca7046644da1771523124516" integrity="sha512-8DS7rgIrAmghBFwoOTujcf6D9rXvH8xm8JQ1Ja01h9QX8EzXldiszufYa4IFfKdLUKTTrnSFXLDkUEOTrZQ8Qg==" data-cf-beacon='{"version":"2024.11.0","token":"75124c326cb447fe934cde04713ae013","r":1,"server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 </body>
 </html>
