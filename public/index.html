@@ -2,6 +2,7 @@
 <html>
 <head>
   <title>Alicization Town</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;700&display=swap');
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -38,7 +39,7 @@
       padding: 3px 10px; font-size: 11px; font-family: 'Pixelify Sans', sans-serif;
       pointer-events: none;
     }
-    #side-panel { width: 280px; display: flex; flex-direction: column; gap: 8px; flex-shrink: 0; }
+    #side-panel { width: 280px; display: flex; flex-direction: column; gap: 8px; flex-shrink: 0; overflow: hidden; }
     #minimap-container {
       background: rgba(40,40,60,0.9); border: 3px solid #c8a165; border-radius: 10px; padding: 8px; text-align: center;
     }
@@ -108,6 +109,87 @@
     .chat-name { color: #74b9ff; font-weight: 700; }
     .chat-time { color: #636e72; font-size: 10px; }
     .interaction-entry { color: #fdcb6e; font-style: italic; }
+    /* Zoom controls */
+    #zoom-controls {
+      position: absolute; bottom: 10px; right: 10px; z-index: 20;
+      display: flex; flex-direction: column; gap: 4px;
+    }
+    .zoom-btn {
+      width: 36px; height: 36px; border: 2px solid #c8a165; border-radius: 8px;
+      background: rgba(0,0,0,0.55); color: #ffeaa7; font-size: 18px; font-weight: 700;
+      font-family: 'Pixelify Sans', sans-serif; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.2s; line-height: 1; -webkit-tap-highlight-color: transparent;
+      user-select: none; touch-action: manipulation;
+    }
+    .zoom-btn:hover { background: rgba(0,0,0,0.75); }
+    .zoom-btn:active { background: rgba(200,161,101,0.4); }
+    .zoom-btn svg { width: 18px; height: 18px; fill: #ffeaa7; pointer-events: none; }
+    /* Mobile responsive */
+    @media (max-width: 960px) {
+      #main-layout { flex-direction: column; align-items: center; width: 100%; }
+      #game-container { width: 100%; }
+      canvas#gameCanvas { width: 100% !important; height: auto !important; }
+      #side-panel { width: 100% !important; max-width: 100%; flex-shrink: 1; flex-direction: row; flex-wrap: wrap; }
+      #minimap-container { flex: 1 1 45%; min-width: 140px; }
+      #ai-panel-container { flex: 1 1 50%; min-width: 180px; max-height: 200px; }
+      #ai-panel-container h3 { font-size: 13px; }
+      #ai-count { font-size: 11px; }
+      #ai-list { font-size: 11px; }
+      .ai-card { padding: 4px 5px; gap: 6px; }
+      .ai-avatar { width: 24px !important; height: 24px !important; }
+      .ai-name { font-size: 12px; }
+      .ai-zone { font-size: 10px; }
+      .ai-status-dot { width: 7px; height: 7px; }
+      #activity-detail { max-height: 160px; }
+      #stats-panel { flex: 1 1 45%; min-width: 140px; }
+      #chatlog-container { flex: 1 1 50%; min-width: 180px; min-height: 150px; max-height: 260px; }
+      h1 { font-size: 22px; }
+      #status-text { font-size: 13px; }
+      #zoom-hint { font-size: 10px; }
+    }
+    @media (max-width: 480px) {
+      body { padding: 4px; }
+      h1 { font-size: 18px; }
+      #side-panel { flex-direction: column; gap: 6px; width: 100% !important; }
+      /* Minimap */
+      #minimap-container { flex: none; width: 100%; padding: 6px; }
+      #minimap-container h3 { font-size: 12px; margin-bottom: 2px; }
+      /* AI Online panel */
+      #ai-panel-container { flex: none; width: 100%; max-height: 150px; padding: 6px; }
+      #ai-panel-container h3 { font-size: 12px; margin-bottom: 2px; }
+      #ai-panel-header { margin-bottom: 2px; }
+      #ai-count { font-size: 10px; }
+      #ai-list { font-size: 10px; }
+      .ai-card { padding: 3px 4px; gap: 4px; }
+      .ai-avatar { width: 18px !important; height: 18px !important; }
+      .ai-info { gap: 0; }
+      .ai-name { font-size: 11px; line-height: 1.2; }
+      .ai-zone { font-size: 9px; line-height: 1.2; }
+      .ai-status-dot { width: 6px; height: 6px; }
+      /* Activity detail */
+      #activity-detail { max-height: 120px; padding: 6px; }
+      #activity-detail h3 { font-size: 12px; margin-bottom: 2px; }
+      #activity-log { font-size: 10px; line-height: 1.3; }
+      .activity-item { padding: 1px 0; }
+      .activity-time { font-size: 9px; }
+      /* Stats panel */
+      #stats-panel { padding: 6px; }
+      #stats-panel h3 { font-size: 12px; margin-bottom: 4px; }
+      .stat-row { font-size: 11px; padding: 2px 0; }
+      /* Chat log */
+      #chatlog-container { flex: none; width: 100%; min-height: 100px; max-height: 180px; padding: 6px; }
+      #chatlog-container h3 { font-size: 12px; margin-bottom: 2px; }
+      #chatlog { font-size: 11px; }
+      .chat-entry { margin-bottom: 2px; padding: 2px 0; }
+      .chat-time { font-size: 9px; }
+      /* Zoom buttons */
+      .zoom-btn { width: 40px; height: 40px; font-size: 20px; }
+      .zoom-btn svg { width: 20px; height: 20px; }
+      #zoom-controls { bottom: 8px; right: 8px; gap: 5px; }
+      /* Zoom hint */
+      #zoom-hint { font-size: 9px; padding: 2px 6px; }
+    }
   </style>
 </head>
 <body>
@@ -121,7 +203,18 @@
         <button class="tool-btn" id="music-toggle">Music OFF</button>
       </div>
       <canvas id="gameCanvas" width="800" height="600"></canvas>
-      <div id="zoom-hint">滚轮缩放 · 拖拽平移 · 点击角色跟随</div>
+      <div id="zoom-hint">滚轮/按钮缩放 · 拖拽/触屏平移 · 双指缩放 · 点击角色跟随</div>
+      <div id="zoom-controls">
+        <button class="zoom-btn" id="zoom-in-btn" title="Zoom In">
+          <svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+        </button>
+        <button class="zoom-btn" id="zoom-out-btn" title="Zoom Out">
+          <svg viewBox="0 0 24 24"><path d="M19 13H5v-2h14v2z"/></svg>
+        </button>
+        <button class="zoom-btn" id="zoom-reset-btn" title="Reset Zoom">
+          <svg viewBox="0 0 24 24"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg>
+        </button>
+      </div>
     </div>
     <div id="side-panel">
       <div id="minimap-container">
@@ -334,6 +427,123 @@
       isCameraFollowing = false;
     }, { passive: false });
 
+    // === Touch events for mobile drag ===
+    let touchId = null;
+    let pinchStartDist = 0, pinchStartZoom = 1;
+
+    canvas.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      if (e.touches.length === 2) {
+        // Pinch zoom start
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        pinchStartDist = Math.hypot(dx, dy);
+        pinchStartZoom = camera.targetZoom;
+        isDragging = false;
+        touchId = null;
+        return;
+      }
+      if (e.touches.length === 1 && touchId === null) {
+        const t = e.touches[0];
+        touchId = t.identifier;
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width, scaleY = canvas.height / rect.height;
+        mouseScreenX = (t.clientX - rect.left) * scaleX;
+        mouseScreenY = (t.clientY - rect.top) * scaleY;
+        mouseX = mouseScreenX / camera.zoom + camera.x;
+        mouseY = mouseScreenY / camera.zoom + camera.y;
+        isDragging = true; dragMoved = false;
+        dragStartScreen = { x: mouseScreenX, y: mouseScreenY };
+        dragStartCam = { x: camera.x, y: camera.y };
+        canvas.classList.add('dragging');
+      }
+    }, { passive: false });
+
+    canvas.addEventListener('touchmove', (e) => {
+      e.preventDefault();
+      if (e.touches.length === 2) {
+        // Pinch zoom
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        const dist = Math.hypot(dx, dy);
+        const scale = dist / pinchStartDist;
+        camera.targetZoom = Math.max(getMinZoom(), Math.min(4.0, pinchStartZoom * scale));
+        isCameraFollowing = false;
+        return;
+      }
+      const t = Array.from(e.touches).find(tt => tt.identifier === touchId);
+      if (!t || !isDragging) return;
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width, scaleY = canvas.height / rect.height;
+      mouseScreenX = (t.clientX - rect.left) * scaleX;
+      mouseScreenY = (t.clientY - rect.top) * scaleY;
+      mouseX = mouseScreenX / camera.zoom + camera.x;
+      mouseY = mouseScreenY / camera.zoom + camera.y;
+      dragMoved = true;
+      const ddx = (mouseScreenX - dragStartScreen.x) / camera.zoom;
+      const ddy = (mouseScreenY - dragStartScreen.y) / camera.zoom;
+      let newX = dragStartCam.x - ddx;
+      let newY = dragStartCam.y - ddy;
+      if (mapData) {
+        const maxX = Math.max(0, mapData.width * TILE_SIZE - VIEWPORT_W / camera.zoom);
+        const maxY = Math.max(0, mapData.height * TILE_SIZE - VIEWPORT_H / camera.zoom);
+        newX = Math.max(0, Math.min(newX, maxX));
+        newY = Math.max(0, Math.min(newY, maxY));
+      }
+      camera.x = camera.targetX = newX;
+      camera.y = camera.targetY = newY;
+    }, { passive: false });
+
+    canvas.addEventListener('touchend', (e) => {
+      if (e.touches.length === 0) {
+        canvas.classList.remove('dragging');
+        if (!dragMoved && hoveredPlayerId && clientPlayers[hoveredPlayerId]) {
+          selectAndFollowPlayer(hoveredPlayerId);
+        } else if (dragMoved) {
+          isCameraFollowing = false;
+        }
+        isDragging = false;
+        touchId = null;
+      } else if (e.touches.length === 1) {
+        // Switched from pinch to single finger — restart drag
+        const t = e.touches[0];
+        touchId = t.identifier;
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width, scaleY = canvas.height / rect.height;
+        mouseScreenX = (t.clientX - rect.left) * scaleX;
+        mouseScreenY = (t.clientY - rect.top) * scaleY;
+        dragStartScreen = { x: mouseScreenX, y: mouseScreenY };
+        dragStartCam = { x: camera.x, y: camera.y };
+        isDragging = true; dragMoved = false;
+      }
+    });
+
+    canvas.addEventListener('touchcancel', () => {
+      isDragging = false; touchId = null;
+      canvas.classList.remove('dragging');
+    });
+
+    // === Zoom button controls ===
+    const DEFAULT_ZOOM = 1.0;
+
+    function applyZoom(newZoom) {
+      camera.targetZoom = Math.max(getMinZoom(), Math.min(4.0, newZoom));
+      isCameraFollowing = false;
+    }
+
+    document.getElementById('zoom-in-btn').addEventListener('click', (e) => {
+      e.stopPropagation();
+      applyZoom(camera.targetZoom + 0.5);
+    });
+    document.getElementById('zoom-out-btn').addEventListener('click', (e) => {
+      e.stopPropagation();
+      applyZoom(camera.targetZoom - 0.5);
+    });
+    document.getElementById('zoom-reset-btn').addEventListener('click', (e) => {
+      e.stopPropagation();
+      applyZoom(DEFAULT_ZOOM);
+    });
+
     miniCanvas.addEventListener('click', (e) => {
       if (!mapData) return;
       const rect = miniCanvas.getBoundingClientRect();
@@ -456,6 +666,13 @@
       }
       requestAnimationFrame(gameLoop);
     }
+
+    // Re-render AI panel on resize (orientation change, etc.)
+    let resizeTimer;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => { updateAiPanel(); }, 150);
+    });
 
     // ==========================================
     // === updateCamera() ===
@@ -966,10 +1183,14 @@
       const players=Object.values(clientPlayers).filter(p=>p.name!=='Observer');
       aiCountEl.textContent=`${players.length} online`;
       aiListEl.innerHTML='';
+      const isMobile = window.innerWidth <= 480;
+      const isTablet = window.innerWidth <= 960;
+      const avatarSize = isMobile ? 18 : (isTablet ? 24 : 28);
       players.forEach(p=>{
         const card=document.createElement('div');
         card.className='ai-card'+(selectedPlayerId===p.id?' selected':'');
         const ac=document.createElement('canvas'); ac.width=16; ac.height=16; ac.className='ai-avatar';
+        ac.style.width=avatarSize+'px'; ac.style.height=avatarSize+'px'; ac.style.display='block'; ac.style.flexShrink='0';
         const si=(p.sprite&&characterImages[p.sprite])?characterImages[p.sprite]:images['player'];
         if(si&&si.complete){const actx=ac.getContext('2d');actx.imageSmoothingEnabled=false;actx.drawImage(si,0,0,si.width/4,si.height/4,0,0,16,16);}
         card.innerHTML=`<div class="ai-info"><div class="ai-name">${escapeHtml(p.name)}</div><div class="ai-zone">${escapeHtml(p.currentZoneName||'小镇街道')}</div></div><div class="ai-status-dot ${p.isThinking?'thinking':'idle'}"></div>`;
