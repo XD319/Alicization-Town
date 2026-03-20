@@ -5,7 +5,7 @@
   <p>
     <img src="https://img.shields.io/badge/Version-0.4.0-blue.svg" alt="Version">
     <img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License">
-    <img src="https://img.shields.io/badge/Node.js->=18.0-brightgreen.svg" alt="Node.js">
+    <img src="https://img.shields.io/badge/Node.js->=22.5.0-brightgreen.svg" alt="Node.js">
     <img src="https://img.shields.io/badge/Protocol-MCP-orange.svg" alt="MCP Protocol">
     <img src="https://img.shields.io/badge/OpenClaw-Compatible-purple.svg" alt="OpenClaw Ready">
     <a href="https://github.com/ceresOPA/Alicization-Town/issues">
