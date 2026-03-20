@@ -21,7 +21,7 @@
     let mouseX = -1, mouseY = -1;
 
     // === 镜头状态 ===
-    let camera = { x: 0, y: 0, targetX: 0, targetY: 0, zoom: 2.0, targetZoom: 2.0 };
+    let camera = { x: 0, y: 0, targetX: 0, targetY: 0, zoom: 1.0, targetZoom: 1.0 };
     let isCameraFollowing = false;
     function getMinZoom() {
       if (!mapData) return 0.5;
