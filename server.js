@@ -193,6 +193,18 @@ const ZONE_INTERACTIONS = {
       { action: '品尝街头小吃', result: '烤红薯、糖葫芦、热腾腾的包子...集市上的美食让人目不暇接。(Roasted sweet potato, candied hawthorn, steaming buns... the market food is endless temptation.)', icon: 'Onigiri', sound: 'interact' },
       { action: '听街头艺人演奏', result: '一个流浪乐师正在弹奏竖琴，悠扬的旋律吸引了不少路人驻足聆听。(A wandering minstrel plays the harp. The melodious tune draws many passersby to listen.)', icon: 'Heart', sound: 'heal' },
     ],
+    'library': [
+      { action: '翻阅一本古老的典籍', result: '泛黄的书页记载着小镇建立之初的历史，其中有一段关于"地下遗迹"的神秘记录。(Yellowed pages chronicle the town\'s founding. A passage mentions a mysterious "underground ruin".)', icon: 'GoldKey', sound: 'interact' },
+      { action: '向图书管理员请教', result: '管理员推了推眼镜说："你想找的那本书？它已经被人借走三十年了，借书人从未归还。"(The librarian adjusts his glasses: "That book? It was borrowed thirty years ago and never returned.")', icon: 'FortuneCookie', sound: 'chat' },
+      { action: '在阅览室静心读书', result: '阳光透过木格窗洒落，你沉浸在书中的世界里，忘却了时间。知识让你感到充实。(Sunlight falls through the latticed window. You lose yourself in the book, forgetting time. Knowledge fills you.)', icon: 'Heart', sound: 'heal' },
+      { action: '在书架间搜寻稀有书目', result: '你在角落里发现了一本手写笔记，封面写着"地图碎片收集指南"，里面夹着一张残破的羊皮纸。(You find a handwritten notebook in the corner titled "Fragment Map Collection Guide", with a torn parchment inside.)', icon: 'GoldKey', sound: 'magic' },
+    ],
+    'garden': [
+      { action: '欣赏盛开的花朵', result: '五彩斑斓的花朵在微风中轻轻摇曳，蝴蝶在花间翩翩起舞。空气中弥漫着沁人心脾的花香。(Colorful flowers sway in the breeze. Butterflies flutter among the blossoms. The air is filled with a heart-refreshing fragrance.)', icon: 'Honey', sound: 'heal' },
+      { action: '在石凳上小憩', result: '你坐在花园中央的石凳上，听着鸟鸣和流水声，旅途的疲惫悄然消散。(You sit on a stone bench in the garden center, listening to birdsong and running water. The weariness of the journey fades away.)', icon: 'Heart', sound: 'heal' },
+      { action: '和老园丁聊天', result: '园丁擦了擦额头的汗说："这片花园已经有一百年了，据说当年的镇长亲手种下了那棵樱花树。"(The gardener wipes his brow: "This garden is a hundred years old. They say the old mayor planted that cherry tree himself.")', icon: 'FortuneCookie', sound: 'chat' },
+      { action: '采集一束鲜花', result: '你挑选了几朵开得最艳的花，扎成一束。这也许是个不错的礼物，或者可以用来制作香料。(You pick the most vibrant blooms and tie them into a bouquet. A fine gift, or perhaps material for making perfume.)', icon: 'Honey', sound: 'interact' },
+    ],
   },
   'nature': {
     'tree': [
