@@ -13,8 +13,9 @@ async function handle(name, _args, client) {
   if (!result) {
     return { content: [{ type: 'text', text: auth?.message || '当前还没有可用 profile，请先 login。' }] };
   }
+  const perceptionText = client.formatPerceptions(result.perceptions);
   return {
-    content: [{ type: 'text', text: client.formatInteract(result) }],
+    content: [{ type: 'text', text: client.formatInteract(result) + perceptionText }],
     memoryContext: {
       location: result.zone || null,
       limit: 4,
