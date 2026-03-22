@@ -16,10 +16,7 @@ async function handle(name, _args, client) {
   const perceptionText = client.formatPerceptions(result.perceptions);
   return {
     content: [{ type: 'text', text: client.formatInteract(result) + perceptionText }],
-    memoryContext: {
-      location: result.zone || null,
-      limit: 4,
-    },
+    memoryContext: client.buildAutoMemoryContext('interact', result),
   };
 }
 

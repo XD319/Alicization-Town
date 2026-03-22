@@ -40,14 +40,10 @@ async function handle(name, args, client) {
       return { content: [{ type: 'text', text: auth?.message || '当前还没有可用 profile，请先 login。' }] };
     }
     const perceptionText = client.formatPerceptions(result.perceptions);
-    return {
-      content: [{ type: 'text', text: client.formatLook(result) + perceptionText }],
-      memoryContext: {
-        location: result.player?.zone || null,
-        partnerId: result.nearby?.[0]?.id || null,
-        limit: 4,
-      },
-    };
+    const response = { content: [{ type: 'text', text: client.formatLook(result) + perceptionText }] };
+    const memoryContext = client.buildAutoMemoryContext('look', result);
+    if (memoryContext) response.memoryContext = memoryContext;
+    return response;
   }
 
   return null;

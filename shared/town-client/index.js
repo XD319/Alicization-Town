@@ -33,6 +33,11 @@ const {
   formatPerceptions,
   parseFlags,
 } = require('./formatters');
+const {
+  AUTO_MEMORY_LIMITS,
+  buildAutoMemoryContext,
+  appendAutoMemories,
+} = require('./memory');
 
 // Wire up cross-module dependencies
 rawServerRegistry.inject(storage);
@@ -84,4 +89,7 @@ module.exports = {
   appendMemorySection,
   formatPerceptions,
   parseFlags,
+  AUTO_MEMORY_LIMITS,
+  buildAutoMemoryContext,
+  appendAutoMemories,
 };

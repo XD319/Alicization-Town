@@ -313,6 +313,199 @@ describe('HTTP API (integration)', () => {
     assert.ok(!recentOnly.body.memories.some((memory) => memory.id === 'memory-old-perfect'));
   });
 
+  it('applies a safe default recall window when since is omitted', async () => {
+    const alpha = await createAndLoginPlayer('WindowAlpha', 'Boy');
+    const beta = await createAndLoginPlayer('WindowBeta', 'Monk');
+    const alphaId = alpha.login.body.player.id;
+    const betaId = beta.login.body.player.id;
+    const location = alpha.login.body.player.zone;
+    const now = Date.now();
+
+    sqliteStateStore.saveAgentMemory({
+      id: 'memory-window-old',
+      agentId: alphaId,
+      partnerId: betaId,
+      location,
+      kind: 'summary',
+      content: 'This memory is too old for the default recall window.',
+      createdAt: now - (31 * 60 * 1000),
+      updatedAt: now - (31 * 60 * 1000),
+    });
+    sqliteStateStore.saveAgentMemory({
+      id: 'memory-window-fresh',
+      agentId: alphaId,
+      partnerId: betaId,
+      location,
+      kind: 'summary',
+      content: 'This memory should remain visible inside the default recall window.',
+      createdAt: now - 5_000,
+      updatedAt: now - 5_000,
+    });
+
+    const freshAlpha = await reloginPlayer(alpha);
+    const recalled = await request('POST', '/api/memories/recall', {
+      partnerId: betaId,
+      location,
+    }, freshAlpha.headers);
+
+    assert.equal(recalled.status, 200);
+    assert.ok(recalled.body.memories.some((memory) => memory.id === 'memory-window-fresh'));
+    assert.ok(!recalled.body.memories.some((memory) => memory.id === 'memory-window-old'));
+  });
+
+  it('suppresses recently retrieved memories during the cooldown window', async () => {
+    const alpha = await createAndLoginPlayer('CooldownAlpha', 'Boy');
+    const beta = await createAndLoginPlayer('CooldownBeta', 'Monk');
+    const alphaId = alpha.login.body.player.id;
+    const betaId = beta.login.body.player.id;
+    const location = alpha.login.body.player.zone;
+    const now = Date.now();
+
+    sqliteStateStore.saveAgentMemory({
+      id: 'memory-cooldown-a',
+      agentId: alphaId,
+      partnerId: betaId,
+      location,
+      kind: 'summary',
+      content: 'First memory returned by recall.',
+      createdAt: now - 100,
+      updatedAt: now - 100,
+    });
+    sqliteStateStore.saveAgentMemory({
+      id: 'memory-cooldown-b',
+      agentId: alphaId,
+      partnerId: betaId,
+      location,
+      kind: 'summary',
+      content: 'Second memory should surface while the first is cooling down.',
+      createdAt: now - 200,
+      updatedAt: now - 200,
+    });
+
+    const freshAlpha = await reloginPlayer(alpha);
+    const first = await request('POST', '/api/memories/recall', {
+      partnerId: betaId,
+      location,
+      limit: 1,
+      since: now - 1_000,
+    }, freshAlpha.headers);
+    assert.equal(first.status, 200);
+    assert.deepEqual(first.body.memories.map((memory) => memory.id), ['memory-cooldown-a']);
+
+    const storedFirst = sqliteStateStore.getAgentMemory('memory-cooldown-a', alphaId);
+    assert.ok(storedFirst.lastRetrievedAt);
+    assert.equal(storedFirst.retrievalCount, 1);
+
+    const second = await request('POST', '/api/memories/recall', {
+      partnerId: betaId,
+      location,
+      limit: 2,
+      since: now - 1_000,
+    }, freshAlpha.headers);
+    assert.equal(second.status, 200);
+    assert.deepEqual(second.body.memories.map((memory) => memory.id), ['memory-cooldown-b']);
+    assert.ok(!second.body.memories.some((memory) => memory.id === 'memory-cooldown-a'));
+  });
+
+  it('prunes old memories per agent to a fixed cap', async () => {
+    const alpha = await createAndLoginPlayer('PruneAlpha', 'Boy');
+    const alphaId = alpha.login.body.player.id;
+    const now = Date.now();
+
+    for (let index = 0; index < 105; index += 1) {
+      sqliteStateStore.saveAgentMemory({
+        id: `memory-prune-${index}`,
+        agentId: alphaId,
+        kind: 'summary',
+        content: `Memory ${index}`,
+        createdAt: now + index,
+        updatedAt: now + index,
+      });
+    }
+
+    const total = sqliteStateStore.database.prepare(`
+      SELECT COUNT(*) AS count
+      FROM agent_memories
+      WHERE agent_id = ?
+    `).get(alphaId).count;
+    const ids = sqliteStateStore.database.prepare(`
+      SELECT id
+      FROM agent_memories
+      WHERE agent_id = ?
+      ORDER BY created_at DESC, id DESC
+    `).all(alphaId).map((row) => row.id);
+
+    assert.equal(total, 100);
+    assert.ok(ids.includes('memory-prune-104'));
+    assert.ok(!ids.includes('memory-prune-0'));
+    assert.ok(!ids.includes('memory-prune-4'));
+  });
+
+  it('prefers active memories over passive ones when relevance is equal', async () => {
+    const alpha = await createAndLoginPlayer('TierAlpha', 'Boy');
+    const beta = await createAndLoginPlayer('TierBeta', 'Monk');
+    const alphaId = alpha.login.body.player.id;
+    const betaId = beta.login.body.player.id;
+    const location = alpha.login.body.player.zone;
+    const now = Date.now();
+
+    sqliteStateStore.saveAgentMemory({
+      id: 'memory-passive-heard',
+      agentId: alphaId,
+      partnerId: betaId,
+      location,
+      kind: 'heard',
+      content: 'Passive memory should rank after active ones.',
+      createdAt: now - 10,
+      updatedAt: now - 10,
+    });
+    sqliteStateStore.saveAgentMemory({
+      id: 'memory-summary-mid',
+      agentId: alphaId,
+      partnerId: betaId,
+      location,
+      kind: 'summary',
+      content: 'Summary memory should stay between active and passive memories.',
+      createdAt: now - 20,
+      updatedAt: now - 20,
+    });
+    sqliteStateStore.saveAgentMemory({
+      id: 'memory-active-say',
+      agentId: alphaId,
+      partnerId: betaId,
+      location,
+      kind: 'say',
+      content: 'Active speech memory should rank ahead of passive ones.',
+      createdAt: now - 30,
+      updatedAt: now - 30,
+    });
+    sqliteStateStore.saveAgentMemory({
+      id: 'memory-active-interaction',
+      agentId: alphaId,
+      partnerId: betaId,
+      location,
+      kind: 'interaction',
+      content: 'Active interaction memory should also rank ahead of passive ones.',
+      createdAt: now - 40,
+      updatedAt: now - 40,
+    });
+
+    const freshAlpha = await reloginPlayer(alpha);
+    const recalled = await request('POST', '/api/memories/recall', {
+      partnerId: betaId,
+      location,
+      limit: 3,
+      since: now - 1_000,
+    }, freshAlpha.headers);
+
+    assert.equal(recalled.status, 200);
+    assert.deepEqual(
+      recalled.body.memories.map((memory) => memory.id),
+      ['memory-active-say', 'memory-active-interaction', 'memory-summary-mid'],
+    );
+    assert.ok(!recalled.body.memories.some((memory) => memory.id === 'memory-passive-heard'));
+  });
+
   it('new login takes over the old session', async () => {
     const authMaterial = generateAuthMaterial();
     const created = await request('POST', '/api/profiles/create', {

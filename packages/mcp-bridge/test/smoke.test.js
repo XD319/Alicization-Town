@@ -18,6 +18,10 @@ function createMockServer() {
   const profiles = new Map();
   const tokens = new Map();
   const activeTokens = new Map();
+  const state = {
+    lookMode: 'plain',
+    recallRequests: [],
+  };
   let sequence = 2000n;
 
   return new Promise((resolve) => {
@@ -114,6 +118,13 @@ function createMockServer() {
             res.end(JSON.stringify({ error: 'unauthorized' }));
             return;
           }
+          if (state.lookMode === 'eligible') {
+            res.end(JSON.stringify({
+              player: { x: 5, y: 5, zone: 'Town Center', zoneDesc: 'Central square' },
+              nearby: [{ id: 'npc-alice', name: 'Alice', distance: 2, relativeDirection: '左侧', zone: 'Town Center', message: null }],
+            }));
+            return;
+          }
           res.end(JSON.stringify({
             player: { x: 5, y: 5, zone: 'Town Center', zoneDesc: 'Central square' },
             nearby: [],
@@ -174,6 +185,7 @@ function createMockServer() {
             res.end(JSON.stringify({ error: 'unauthorized' }));
             return;
           }
+          state.recallRequests.push(payload);
           const memories = payload.location === 'Town Center'
             ? [{ id: 'm-town', content: 'You recently handled something important in Town Center.' }]
             : [{ id: 'm-general', content: 'You remember this town rewards consistent observation.' }];
@@ -197,6 +209,7 @@ function createMockServer() {
       });
     });
 
+    server.testState = state;
     server.listen(MOCK_PORT, () => resolve(server));
   });
 }
@@ -319,16 +332,34 @@ describe('Bridge MCP (smoke)', () => {
     assert.match(await callTool(bridge, 5, 'characters'), /Samurai/);
     const mapText = await callTool(bridge, 6, 'map');
     assert.match(mapText, /Town Center/);
-    assert.match(mapText, /Relevant memories/);
+    assert.doesNotMatch(mapText, /Relevant memories/);
+    assert.equal(mockServer.testState.recallRequests.length, 0);
     const lookText = await callTool(bridge, 7, 'look');
-    assert.match(lookText, /Relevant memories/);
     assert.match(lookText, /位置感知/);
+    assert.doesNotMatch(lookText, /Relevant memories/);
+    assert.equal(mockServer.testState.recallRequests.length, 0);
+
+    mockServer.testState.lookMode = 'eligible';
+    const eligibleLookText = await callTool(bridge, 7, 'look');
+    assert.match(eligibleLookText, /Relevant memories/);
+    assert.equal(mockServer.testState.recallRequests.length, 1);
+    assert.deepEqual(mockServer.testState.recallRequests[0], {
+      partnerId: 'npc-alice',
+      location: 'Town Center',
+      limit: 2,
+    });
+
     assert.match(await callTool(bridge, 8, 'walk', { direction: 'E', steps: 3 }), /你试图向 E 走 3 步/);
     assert.match(await callTool(bridge, 9, 'chat', { text: '你好' }), /你说: 你好/);
     assert.match(await callTool(bridge, 10, 'chat'), /聊天频道/);
     const interactText = await callTool(bridge, 11, 'interact');
     assert.match(interactText, /Relevant memories/);
     assert.match(interactText, /互动/);
+    assert.equal(mockServer.testState.recallRequests.length, 2);
+    assert.deepEqual(mockServer.testState.recallRequests[1], {
+      location: 'Town Center',
+      limit: 2,
+    });
     assert.equal(JSON.parse(await callTool(bridge, 12, 'logout')).ok, true);
   });
 });

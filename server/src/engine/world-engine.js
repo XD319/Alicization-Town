@@ -35,6 +35,9 @@ const players = {};
 const chatHistory = [];
 const playerActivities = {};
 const events = new EventEmitter();
+const DEFAULT_MEMORY_RECALL_WINDOW_MS = 30 * 60 * 1000;
+const DEFAULT_MEMORY_RECALL_LIMIT = 3;
+const MEMORY_RETRIEVAL_COOLDOWN_MS = 2 * 60 * 1000;
 const MAX_MEMORY_PARTICIPANTS = 3;
 const MAX_MEMORY_TEXT_LENGTH = 96;
 
@@ -658,16 +661,22 @@ function setThinking(playerId, isThinking) {
   broadcast();
 }
 
-function recallMemories(playerId, { partnerId = null, location = null, since = null, limit = 4 } = {}) {
+function recallMemories(playerId, { partnerId = null, location = null, since = null, limit = DEFAULT_MEMORY_RECALL_LIMIT } = {}) {
   const player = players[playerId];
   if (!player) return null;
+  const recallNow = Date.now();
   const resolvedLocation = location || player.currentZoneName || null;
+  const resolvedSince = Number.isFinite(since)
+    ? since
+    : (recallNow - DEFAULT_MEMORY_RECALL_WINDOW_MS);
   const memories = sqliteStateStore.retrieveAgentMemories({
     agentId: playerId,
     partnerId,
     location: resolvedLocation,
-    since,
+    since: resolvedSince,
     limit,
+    cooldownMs: MEMORY_RETRIEVAL_COOLDOWN_MS,
+    now: recallNow,
   });
   return memories.map((memory) => ({
     id: memory.id,

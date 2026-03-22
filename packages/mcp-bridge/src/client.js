@@ -172,5 +172,6 @@ module.exports = {
   formatChat: townClient.formatChat,
   formatInteract: townClient.formatInteract,
   appendMemorySection: townClient.appendMemorySection,
+  buildAutoMemoryContext: townClient.buildAutoMemoryContext,
   formatPerceptions: townClient.formatPerceptions,
 };

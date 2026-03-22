@@ -3,6 +3,10 @@ const path = require('path');
 const { DatabaseSync } = require('node:sqlite');
 const { DATABASE_FILE } = require('../config/service-config');
 
+const MAX_AGENT_MEMORIES = 100;
+const DEFAULT_MEMORY_RECALL_LIMIT = 3;
+const MAX_MEMORY_RECALL_LIMIT = 50;
+
 function ensureDirectory(dirPath) {
   fs.mkdirSync(dirPath, { recursive: true });
 }
@@ -299,6 +303,7 @@ class SQLiteStateStore {
       Number.isFinite(memory.retrievalCount) ? memory.retrievalCount : 0,
     );
 
+    this.pruneAgentMemories(memory.agentId);
     return this.getAgentMemory(memory.id, memory.agentId);
   }
 
@@ -351,11 +356,17 @@ class SQLiteStateStore {
     partnerId = null,
     location = null,
     since = null,
-    limit = 5,
+    limit = DEFAULT_MEMORY_RECALL_LIMIT,
+    cooldownMs = 0,
+    now = Date.now(),
   }) {
     if (!agentId) return [];
-    const safeLimit = Math.max(1, Math.min(Number(limit) || 5, 50));
+    const safeLimit = Math.max(1, Math.min(Number(limit) || DEFAULT_MEMORY_RECALL_LIMIT, MAX_MEMORY_RECALL_LIMIT));
+    const retrievedAt = Number.isFinite(now) ? now : Date.now();
     const sinceTimestamp = Number.isFinite(since) ? since : null;
+    const cooldownCutoff = Number.isFinite(cooldownMs) && cooldownMs > 0
+      ? (retrievedAt - cooldownMs)
+      : null;
     const rows = this.database.prepare(`
       SELECT
         id,
@@ -370,30 +381,39 @@ class SQLiteStateStore {
         last_retrieved_at AS lastRetrievedAt,
         retrieval_count AS retrievalCount,
         (
+          (
+            CASE
+              WHEN ? IS NOT NULL AND partner_id = ? THEN 2
+              ELSE 0
+            END +
+            CASE
+              WHEN ? IS NOT NULL AND location = ? THEN 1
+              ELSE 0
+            END
+          ) * 10 +
           CASE
-            WHEN ? IS NOT NULL AND partner_id = ? THEN 2
-            ELSE 0
-          END +
-          CASE
-            WHEN ? IS NOT NULL AND location = ? THEN 1
-            ELSE 0
+            WHEN kind IN ('interaction', 'say') THEN 2
+            WHEN kind = 'summary' THEN 1
+            WHEN kind IN ('heard', 'witnessed_interaction') THEN 0
+            ELSE 1
           END
         ) AS retrievalScore
       FROM agent_memories
       WHERE agent_id = ?
         AND (? IS NULL OR created_at >= ?)
-      ORDER BY retrievalScore DESC, created_at DESC, id DESC
+        AND (? IS NULL OR last_retrieved_at IS NULL OR last_retrieved_at < ?)
+      ORDER BY retrievalScore DESC, retrieval_count ASC, created_at DESC, id DESC
       LIMIT ?
     `).all(
       partnerId, partnerId,
       location, location,
       agentId,
       sinceTimestamp, sinceTimestamp,
+      cooldownCutoff, cooldownCutoff,
       safeLimit,
     );
 
     if (rows.length > 0) {
-      const retrievedAt = Date.now();
       const touchMemory = this.database.prepare(`
         UPDATE agent_memories
         SET last_retrieved_at = ?, retrieval_count = retrieval_count + 1
@@ -409,6 +429,23 @@ class SQLiteStateStore {
     }
 
     return rows.map((row) => this.mapAgentMemoryRow(row));
+  }
+
+  pruneAgentMemories(agentId, { keep = MAX_AGENT_MEMORIES } = {}) {
+    if (!agentId) return 0;
+    const safeKeep = Math.max(1, Math.min(Number(keep) || MAX_AGENT_MEMORIES, MAX_AGENT_MEMORIES));
+    const result = this.database.prepare(`
+      DELETE FROM agent_memories
+      WHERE agent_id = ?
+        AND id NOT IN (
+          SELECT id
+          FROM agent_memories
+          WHERE agent_id = ?
+          ORDER BY created_at DESC, id DESC
+          LIMIT ?
+        )
+    `).run(agentId, agentId, safeKeep);
+    return result.changes || 0;
   }
 
   mapAgentMemoryRow(row) {
