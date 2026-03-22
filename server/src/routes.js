@@ -96,14 +96,16 @@ router.get('/look', requireSession, (req, res) => {
   res.json({ ...result, perceptions: req.drainPerceptions(), newMessages: req.drainNewMessages() });
 });
 
-router.post('/walk', requireSession, (req, res) => {
-  const { direction, steps } = req.body || {};
-  if (!direction || !['N', 'S', 'W', 'E'].includes(direction)) {
-    return res.status(400).json({ error: '无效方向，可选: N/S/W/E' });
+router.post('/walk', requireSession, async (req, res) => {
+  const { to, x, y, forward, right } = req.body || {};
+  const hasAbsoluteCoord = typeof x === 'number' && typeof y === 'number';
+  const hasRelative = typeof forward === 'number' || typeof right === 'number';
+  if (!to && !hasAbsoluteCoord && !hasRelative) {
+    return res.status(400).json({ error: '需要指定目标: to(地名)、x+y(坐标)、或 forward/right(相对移动)' });
   }
-  if (!steps || steps < 1) return res.status(400).json({ error: '步数必须 >= 1' });
-  const result = worldEngine.move(req.requestHandle.playerId, direction, Math.floor(steps));
+  const result = await worldEngine.move(req.requestHandle.playerId, { to, x, y, forward, right });
   if (!result) return res.status(404).json({ error: '玩家不存在' });
+  if (result.error) return res.status(400).json({ error: result.error });
   res.json({ ...result, perceptions: req.drainPerceptions(), newMessages: req.drainNewMessages() });
 });
 

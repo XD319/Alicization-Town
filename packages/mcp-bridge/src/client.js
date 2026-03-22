@@ -104,8 +104,8 @@ async function look() {
   return authenticatedRequest('GET', '/api/look');
 }
 
-async function walk(direction, steps) {
-  return authenticatedRequest('POST', '/api/walk', { direction, steps });
+async function walk(target) {
+  return authenticatedRequest('POST', '/api/walk', target);
 }
 
 async function sendChat(text) {

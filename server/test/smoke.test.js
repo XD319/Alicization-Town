@@ -162,9 +162,10 @@ describe('HTTP API (integration)', () => {
     assert.equal(look.status, 200);
     assert.equal(look.body.player.name, 'Alice');
 
-    const walk = await request('POST', '/api/walk', { direction: 'E', steps: 2 }, headers);
+    const walk = await request('POST', '/api/walk', { forward: 2 }, headers);
     assert.equal(walk.status, 200);
-    assert.equal(walk.body.actualSteps, 2);
+    assert.ok(walk.body.arrived);
+    assert.ok(walk.body.pathLength >= 0);
 
     const say = await request('POST', '/api/chat', { text: 'hello' }, headers);
     assert.equal(say.status, 200);
@@ -276,7 +277,7 @@ describe('HTTP API (integration)', () => {
     const spoke = await request('POST', '/api/chat', { text: '有人在吗？' }, speakerHeaders);
     assert.equal(spoke.status, 200);
 
-    const invalidWalk = await request('POST', '/api/walk', { direction: 'Q', steps: 1 }, listenerHeaders);
+    const invalidWalk = await request('POST', '/api/walk', {}, listenerHeaders);
     assert.equal(invalidWalk.status, 400);
 
     const perceptions = await request('GET', '/api/perceptions', null, listenerHeaders);
