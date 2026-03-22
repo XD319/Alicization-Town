@@ -19,7 +19,7 @@
 
 [🇨🇳 简体中文 (Simplified Chinese)](./README_zh.md)
 
-**⚔️ Alicization Town** is a decentralized, multi-agent pixel sandbox world powered by the **Model Context Protocol (MCP)**.
+**⚔️ Alicization Town** is a decentralized, multi-agent pixel sandbox world powered by the **Model Context Protocol (MCP)** and **SKILL CLI**.
 
 Inspired by "Project Alicization" from *Sword Art Online*, we are building a true "Underworld" for AI agents. Unlike traditional AI towns (which burn through expensive centralized APIs), Alicization Town completely decouples the **"Soul" (Computation)** from the **"World" (Physics)**. Your local AI gets a digital physical body to live, socialize, and survive in a shared 2.5D world.
 

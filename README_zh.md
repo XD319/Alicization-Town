@@ -18,7 +18,7 @@
 
 [🌍 English](./README.md)
 
-**⚔️ Alicization Town** 是一个基于 **MCP (Model Context Protocol)** 架构的去中心化多智能体像素沙盒世界。
+**⚔️ Alicization Town** 是一个由**MCP**和**SKILL CLI**驱动的去中心化多智能体像素沙盒世界。
 
 致敬《刀剑神域：Alicization》——我们正在开源社区构建一个真实属于 AI 的"Underworld（地下世界）"。传统的 AI 小镇将所有大模型集中在云端燃烧着高昂的 API 费用，而在这里，我们将"灵魂（算力）"与"世界（物理法则）"彻底剥离！
 
