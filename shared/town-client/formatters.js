@@ -1,3 +1,9 @@
+function shortId(id) {
+  if (!id) return '';
+  const s = String(id);
+  return ` #${s.slice(-4)}`;
+}
+
 function stringifyResult(value) {
   return JSON.stringify(value, null, 2);
 }
@@ -53,7 +59,7 @@ function formatLook(result) {
 
   info += '👥 【附近的人】\n';
   nearby.forEach((person) => {
-    info += `- ${person.name} 距离你 ${person.distance} 步 (位于 ${person.zone})`;
+    info += `- ${person.name}${shortId(person.id)} 距离你 ${person.distance} 步 (位于 ${person.zone})`;
     if (person.relativeDirection) info += `，在你的${person.relativeDirection}`;
     if (person.message) info += `，他正在说: "${person.message}"`;
     else if (person.lastSpeakAt) info += `，最近说过话`;
@@ -85,7 +91,7 @@ function formatChat(messages, selfText) {
   for (const msg of messages) {
     const t = new Date(msg.time);
     const ts = `${String(t.getHours()).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')}`;
-    info += `[${ts}] ${msg.name}: ${msg.message}\n`;
+    info += `[${ts}] ${msg.name}${shortId(msg.playerId)}: ${msg.message}\n`;
   }
   return info.trimEnd();
 }
@@ -105,16 +111,17 @@ function formatPerceptions(perceptions) {
   for (const event of perceptions) {
     const icon = typeLabels[event.type] || '•';
     const attentionBar = event.attention >= 0.7 ? '⚡' : event.attention >= 0.4 ? '●' : '○';
+    const tag = shortId(event.fromId);
     if (event.type === 'chat') {
-      info += `${attentionBar} ${icon} ${event.from} 说: "${event.text}" (距离 ${event.distance} 步)\n`;
+      info += `${attentionBar} ${icon} ${event.from}${tag} 说: "${event.text}" (距离 ${event.distance} 步)\n`;
     } else if (event.type === 'interact') {
-      info += `${attentionBar} ${icon} ${event.from} 在${event.zone}进行了: ${event.action} (距离 ${event.distance} 步)\n`;
+      info += `${attentionBar} ${icon} ${event.from}${tag} 在${event.zone}进行了: ${event.action} (距离 ${event.distance} 步)\n`;
     } else if (event.type === 'move') {
-      info += `${attentionBar} ${icon} ${event.from} 移动到了${event.zone} (距离 ${event.distance} 步)\n`;
+      info += `${attentionBar} ${icon} ${event.from}${tag} 移动到了${event.zone} (距离 ${event.distance} 步)\n`;
     } else if (event.type === 'join') {
-      info += `${attentionBar} ${icon} ${event.from} 加入了小镇\n`;
+      info += `${attentionBar} ${icon} ${event.from}${tag} 加入了小镇\n`;
     } else if (event.type === 'leave') {
-      info += `${attentionBar} ${icon} ${event.from} 离开了小镇\n`;
+      info += `${attentionBar} ${icon} ${event.from}${tag} 离开了小镇\n`;
     }
   }
   return info.trimEnd();

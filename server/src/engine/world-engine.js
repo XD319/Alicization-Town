@@ -142,8 +142,8 @@ function sanitize(player) {
   };
 }
 
-function addChat(name, message, x, y) {
-  const entry = { id: ++nextChatCursor, time: Date.now(), name, message, x, y };
+function addChat(playerId, name, message, x, y) {
+  const entry = { id: ++nextChatCursor, playerId, time: Date.now(), name, message, x, y };
   chatHistory.push(entry);
   if (chatHistory.length > MAX_CHAT_MESSAGES) chatHistory.shift();
   events.emit('chat', entry);
@@ -153,7 +153,7 @@ function drainChat(playerId) {
   const player = players[playerId];
   if (!player) return [];
   const cursor = player.lastChatCursor || 0;
-  const newMessages = chatHistory.filter((m) => m.id > cursor && m.name !== player.name);
+  const newMessages = chatHistory.filter((m) => m.id > cursor && m.playerId !== playerId);
   if (newMessages.length > 0) {
     player.lastChatCursor = newMessages[newMessages.length - 1].id;
   }
@@ -447,7 +447,7 @@ function chat(playerId, text) {
   touchAction(playerId);
   player.message = text;
   player.lastSpeakAt = Date.now();
-  addChat(player.name, text, player.x, player.y);
+  addChat(playerId, player.name, text, player.x, player.y);
   addActivity(playerId, { type: 'chat', text: `说: "${text.substring(0, 30)}${text.length > 30 ? '...' : ''}"` });
   emitPerception('chat', playerId, player.name, player.x, player.y, { text });
   broadcast();
