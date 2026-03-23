@@ -36,6 +36,7 @@ let nextChatCursor = 0;
 const players = {};
 const chatHistory = [];
 const playerActivities = {};
+const walkAborts = new Map();
 const events = new EventEmitter();
 
 function deriveHandle(publicKey) {
@@ -440,6 +441,8 @@ function join(playerId, name, sprite, options = {}) {
 function _removePlayerSilent(playerId) {
   const player = players[playerId];
   if (!player) return;
+  walkAborts.get(playerId)?.abort();
+  walkAborts.delete(playerId);
   emitPerception('leave', playerId, player.name, player.x, player.y);
   delete players[playerId];
   delete playerActivities[playerId];
@@ -495,7 +498,8 @@ function resolveTarget({ to, x, y, forward, right }, player) {
     const zone = nav.find((z) => z.id === to.trim().toLowerCase());
     if (zone) return { targetX: zone.x, targetY: zone.y, resolvedZone: zone.name };
     const validIds = nav.map((z) => z.id).join(', ');
-    return { error: `未知地点: "${to}"。请使用 map 获取的精确 id。可用: ${validIds}` };
+    const safeTo = to.slice(0, 64).replace(/[<>"'&]/g, '');
+    return { error: `未知地点: "${safeTo}"。请使用 map 获取的精确 id。可用: ${validIds}` };
   }
   if ((typeof forward === 'number' || typeof right === 'number') && player) {
     const abs = relativeToAbsolute(player.lastDirection, forward || 0, right || 0, player.x, player.y);
@@ -513,6 +517,11 @@ async function move(playerId, target) {
   const player = players[playerId];
   if (!player) return null;
   touchAction(playerId);
+
+  // Cancel any in-flight walk for this player
+  walkAborts.get(playerId)?.abort();
+  const ac = new AbortController();
+  walkAborts.set(playerId, ac);
 
   const resolved = resolveTarget(target, player);
   if (resolved.error) return { error: resolved.error };
@@ -548,6 +557,7 @@ async function move(playerId, target) {
 
   // Walk tick-by-tick (skip index 0 which is current position)
   for (let i = 1; i < path.length; i += 1) {
+    if (ac.signal.aborted || !players[playerId]) break;
     const prev = path[i - 1];
     const step = path[i];
     player.x = step.x;
@@ -558,6 +568,20 @@ async function move(playerId, target) {
     if (i < path.length - 1) {
       await new Promise((resolve) => setTimeout(resolve, MOVE_TICK_MS));
     }
+  }
+
+  walkAborts.delete(playerId);
+
+  // If cancelled or player removed mid-walk, return partial result
+  if (ac.signal.aborted || !players[playerId]) {
+    return {
+      player: players[playerId] ? sanitize(players[playerId]) : null,
+      pathLength: 0,
+      arrived: false,
+      wasBlocked,
+      cancelled: true,
+      targetZone: resolvedZone || null,
+    };
   }
 
   zoneInfo(player);
