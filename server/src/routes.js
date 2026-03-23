@@ -76,6 +76,24 @@ router.get('/look', requireSession, (req, res) => {
 
 router.post('/walk', requireSession, async (req, res) => {
   const { to, x, y, forward, right } = req.body || {};
+
+  // -- 参数类型与边界校验 --
+  if (to !== undefined && (typeof to !== 'string' || to.length === 0 || to.length > 64)) {
+    return res.status(400).json({ error: 'to 参数必须为 1-64 字符的字符串' });
+  }
+  if (x !== undefined && !Number.isFinite(x)) {
+    return res.status(400).json({ error: 'x 必须为有限数值' });
+  }
+  if (y !== undefined && !Number.isFinite(y)) {
+    return res.status(400).json({ error: 'y 必须为有限数值' });
+  }
+  if (forward !== undefined && !Number.isFinite(forward)) {
+    return res.status(400).json({ error: 'forward 必须为有限数值' });
+  }
+  if (right !== undefined && !Number.isFinite(right)) {
+    return res.status(400).json({ error: 'right 必须为有限数值' });
+  }
+
   const hasAbsoluteCoord = typeof x === 'number' && typeof y === 'number';
   const hasRelative = typeof forward === 'number' || typeof right === 'number';
   if (!to && !hasAbsoluteCoord && !hasRelative) {

@@ -495,7 +495,8 @@ function resolveTarget({ to, x, y, forward, right }, player) {
     const zone = nav.find((z) => z.id === to.trim().toLowerCase());
     if (zone) return { targetX: zone.x, targetY: zone.y, resolvedZone: zone.name };
     const validIds = nav.map((z) => z.id).join(', ');
-    return { error: `未知地点: "${to}"。请使用 map 获取的精确 id。可用: ${validIds}` };
+    const safeTo = to.slice(0, 64).replace(/[<>"'&]/g, '');
+    return { error: `未知地点: "${safeTo}"。请使用 map 获取的精确 id。可用: ${validIds}` };
   }
   if ((typeof forward === 'number' || typeof right === 'number') && player) {
     const abs = relativeToAbsolute(player.lastDirection, forward || 0, right || 0, player.x, player.y);
