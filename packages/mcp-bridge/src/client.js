@@ -16,8 +16,17 @@ function startHeartbeatLoop() {
     try {
       const result = await activeHandle.heartbeat();
       if (!result.ok && result.reason === 'unauthorized') {
-        clearInterval(heartbeatTimer);
-        heartbeatTimer = null;
+        try {
+          const loginResult = await activeHandle.login({ profile: targetProfile });
+          if (!loginResult.token) {
+            clearInterval(heartbeatTimer);
+            heartbeatTimer = null;
+            console.error('🔴 MCP Bridge: 自动重登失败，heartbeat 已停止。');
+          }
+        } catch {
+          clearInterval(heartbeatTimer);
+          heartbeatTimer = null;
+        }
       }
     } catch {}
   }, townClient.HEARTBEAT_INTERVAL_MS);

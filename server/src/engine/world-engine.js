@@ -297,6 +297,7 @@ function loginProfile(handle, timestamp, signature) {
   const previousToken = sqliteStateStore.getActiveToken(profile.id);
   const hadActiveSession = Boolean(previousToken && sqliteStateStore.getAuthSession(previousToken));
   if (previousToken) destroyToken(previousToken, { evictPlayer: true });
+  sqliteStateStore.clearActiveToken(profile.id);
 
   const token = crypto.randomUUID();
   const now = Date.now();
@@ -333,15 +334,20 @@ function getTokenSession(token, { touchLease = false } = {}) {
   const session = sqliteStateStore.getAuthSession(token);
   if (!session) return null;
   const now = Date.now();
-  // Token validity: only expiresAt matters (24h TTL)
   if (session.expiresAt <= now) {
     destroyToken(token);
     return null;
   }
-  // Lease is for presence display only; renew on any authenticated action
   if (touchLease) {
     session.leaseExpiresAt = now + LEASE_TTL_MS;
     sqliteStateStore.saveAuthSession(session);
+    // Auto-rejoin if player was ghost-cleaned but token is still valid
+    if (!players[session.id]) {
+      const profile = sqliteStateStore.getProfile(session.id);
+      if (profile) {
+        join(profile.id, profile.name, profile.sprite, { trackActivity: true });
+      }
+    }
     touchHeartbeat(session.id);
   }
   return session;
@@ -378,7 +384,7 @@ function pruneExpiredSessions() {
     const player = players[playerId];
     if (!player || player.isNPC) continue;
     if (getPresenceState(player) === 'offline') {
-      removePlayer(playerId);
+      _removePlayerSilent(playerId);
       changed = true;
     }
   }
@@ -387,6 +393,10 @@ function pruneExpiredSessions() {
 
 const cleanupTimer = setInterval(pruneExpiredSessions, 1_000);
 if (typeof cleanupTimer.unref === 'function') cleanupTimer.unref();
+
+function shutdown() {
+  clearInterval(cleanupTimer);
+}
 
 function emitPerception(type, playerId, playerName, x, y, data = {}) {
   perception.onWorldEvent({ type, playerId, playerName, position: { x, y }, data }, players);
@@ -427,7 +437,7 @@ function join(playerId, name, sprite, options = {}) {
   return players[playerId];
 }
 
-function removePlayer(playerId) {
+function _removePlayerSilent(playerId) {
   const player = players[playerId];
   if (!player) return;
   emitPerception('leave', playerId, player.name, player.x, player.y);
@@ -435,6 +445,10 @@ function removePlayer(playerId) {
   delete playerActivities[playerId];
   perception.cleanup(playerId);
   actionLock.remove(playerId);
+}
+
+function removePlayer(playerId) {
+  _removePlayerSilent(playerId);
   broadcast();
 }
 
@@ -691,4 +705,5 @@ module.exports = {
   getWorldMap: () => worldMap,
   drainChat,
   refreshZoneInfo,
+  shutdown,
 };

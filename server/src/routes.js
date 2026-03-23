@@ -54,9 +54,9 @@ router.post('/login', (req, res) => {
 });
 
 router.post('/session/heartbeat', (req, res) => {
-  const { handle, error } = RequestContext.fromRequest(req, { required: true, touchLease: false });
-  if (!handle || !handle.token) return res.status(401).json({ error: error || '缺少登录凭证，请重新 login。' });
-  const result = worldEngine.heartbeat(handle.token);
+  const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '') || null;
+  if (!token) return res.status(401).json({ error: '缺少登录凭证，请重新 login。' });
+  const result = worldEngine.heartbeat(token);
   if (!result) return res.status(401).json({ error: '登录已失效，请重新 login。' });
   res.json(result);
 });

@@ -119,6 +119,7 @@ describe('HTTP API (integration)', () => {
   });
 
   after(() => {
+    worldEngine.shutdown();
     server?.close();
     fs.rmSync(TEMP_HOME, { recursive: true, force: true });
   });
@@ -441,6 +442,108 @@ describe('HTTP API (integration)', () => {
     assert.equal(badZone.status, 400);
     assert.ok(badZone.body.error);
 
+  });
+
+  it('auto-rejoins a player after ghost cleanup when token is still valid', async () => {
+    const authMaterial = generateAuthMaterial();
+    const created = await request('POST', '/api/profiles/create', {
+      name: 'GhostBot',
+      sprite: 'Princess',
+      publicKey: authMaterial.publicJwk.x,
+    });
+    const timestamp = Date.now();
+    const login = await request('POST', '/api/login', {
+      handle: created.body.handle,
+      timestamp,
+      signature: signLogin(created.body.handle, authMaterial.privateJwk, timestamp),
+    });
+    const headers = { Authorization: `Bearer ${login.body.token}` };
+    const playerId = login.body.player.id;
+
+    // Wait for lease to expire (120ms in test env) so player goes offline
+    await new Promise((resolve) => setTimeout(resolve, 130));
+    worldEngine.pruneExpiredSessions();
+
+    // Player should be removed from memory
+    let players = await request('GET', '/api/players');
+    assert.equal(players.body.players[playerId], undefined);
+
+    // Token TTL is 1000ms so token is still valid — heartbeat should auto-rejoin
+    const heartbeat = await request('POST', '/api/session/heartbeat', null, headers);
+    assert.equal(heartbeat.status, 200);
+    assert.ok(heartbeat.body.ok);
+
+    // Player should be back in the game
+    players = await request('GET', '/api/players');
+    assert.ok(players.body.players[playerId]);
+    assert.equal(players.body.players[playerId].name, 'GhostBot');
+
+    // Authenticated requests should work normally
+    const look = await request('GET', '/api/look', null, headers);
+    assert.equal(look.status, 200);
+    assert.equal(look.body.player.name, 'GhostBot');
+
     await request('POST', '/api/logout', null, headers);
+  });
+
+  it('rejects login with invalid signature', async () => {
+    const authMaterial = generateAuthMaterial();
+    const created = await request('POST', '/api/profiles/create', {
+      name: 'BadSigBot',
+      sprite: 'Boy',
+      publicKey: authMaterial.publicJwk.x,
+    });
+    const timestamp = Date.now();
+    const wrongKey = generateAuthMaterial();
+    const badLogin = await request('POST', '/api/login', {
+      handle: created.body.handle,
+      timestamp,
+      signature: signLogin(created.body.handle, wrongKey.privateJwk, timestamp),
+    });
+    assert.equal(badLogin.status, 401);
+  });
+
+  it('rejects login with expired timestamp', async () => {
+    const authMaterial = generateAuthMaterial();
+    const created = await request('POST', '/api/profiles/create', {
+      name: 'ExpiredBot',
+      sprite: 'Samurai',
+      publicKey: authMaterial.publicJwk.x,
+    });
+    const staleTimestamp = Date.now() - 120_000;
+    const expiredLogin = await request('POST', '/api/login', {
+      handle: created.body.handle,
+      timestamp: staleTimestamp,
+      signature: signLogin(created.body.handle, authMaterial.privateJwk, staleTimestamp),
+    });
+    assert.equal(expiredLogin.status, 401);
+  });
+
+  it('rejects login with unknown handle', async () => {
+    const authMaterial = generateAuthMaterial();
+    const timestamp = Date.now();
+    const unknownLogin = await request('POST', '/api/login', {
+      handle: 'at_nonexistent_handle_000000',
+      timestamp,
+      signature: signLogin('at_nonexistent_handle_000000', authMaterial.privateJwk, timestamp),
+    });
+    assert.equal(unknownLogin.status, 404);
+  });
+
+  it('rejects requests with empty or malformed tokens', async () => {
+    const noToken = await request('GET', '/api/look');
+    assert.equal(noToken.status, 401);
+
+    const emptyBearer = await request('GET', '/api/look', null, { Authorization: 'Bearer ' });
+    assert.equal(emptyBearer.status, 401);
+
+    const garbageToken = await request('GET', '/api/look', null, { Authorization: 'Bearer garbage-token-12345' });
+    assert.equal(garbageToken.status, 401);
+
+    const heartbeatNoToken = await request('POST', '/api/session/heartbeat');
+    assert.equal(heartbeatNoToken.status, 401);
+
+    const heartbeatBadToken = await request('POST', '/api/session/heartbeat', null, { Authorization: 'Bearer bad-token' });
+    assert.equal(heartbeatBadToken.status, 401);
   });
 });
