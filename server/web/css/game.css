@@ -338,7 +338,7 @@ canvas {
   #status-text { font-size: 13px; }
   #page-wrapper { width: 100%; gap: 8px; }
   #main-layout { flex-direction: column; align-items: center; }
-  #game-container { width: 100%; }
+  #game-container { width: 100%; flex: none; }
   #game-container canvas { width: 100% !important; height: auto !important; display: block; }
   #side-panel { width: 100%; max-width: var(--stack-panel-max-width); max-height: none; flex: none; align-self: center; }
   #bottom-panel { flex-direction: column; align-items: center; }
