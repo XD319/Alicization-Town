@@ -2,11 +2,10 @@
 const { Router } = require('express');
 const worldEngine = require('./engine/world-engine');
 const { RequestContext } = require('./request-context');
+const actionLock = require('./engine/action-lock');
 
 const router = Router();
 router.use(require('express').json());
-const IDLE_AFTER_MS = Number(process.env.ALICIZATION_TOWN_IDLE_AFTER_MS || 30_000);
-const LEASE_TTL_MS = Number(process.env.ALICIZATION_TOWN_LEASE_TTL_MS || 180_000);
 
 function requireSession(req, res, next) {
   const { handle, error } = RequestContext.fromRequest(req, { required: true, touchLease: true });
@@ -32,27 +31,7 @@ router.get('/map', maybeSession, (req, res) => {
 });
 
 router.get('/players', (_req, res) => {
-  const raw = worldEngine.getAllPlayers();
-  const result = {};
-  const now = Date.now();
-  for (const [id, player] of Object.entries(raw)) {
-    const heartbeatAge = player.lastHeartbeatAt ? now - player.lastHeartbeatAt : Infinity;
-    const actionAge = player.lastActionAt ? now - player.lastActionAt : Infinity;
-    result[id] = {
-      id,
-      name: player.name,
-      x: player.x,
-      y: player.y,
-      zone: player.currentZoneName,
-      sprite: player.sprite,
-      isThinking: player.isThinking,
-      message: player.message || '',
-      lastActionAt: player.lastActionAt || null,
-      lastHeartbeatAt: player.lastHeartbeatAt || null,
-      presenceState: heartbeatAge > LEASE_TTL_MS ? 'offline' : (actionAge > IDLE_AFTER_MS ? 'idle' : 'active'),
-    };
-  }
-  res.json({ players: result });
+  res.json({ players: worldEngine.sanitizeAllPlayers() });
 });
 
 router.post('/profiles/create', (req, res) => {
@@ -75,9 +54,9 @@ router.post('/login', (req, res) => {
 });
 
 router.post('/session/heartbeat', (req, res) => {
-  const { handle, error } = RequestContext.fromRequest(req, { required: true, touchLease: false });
-  if (!handle || !handle.token) return res.status(401).json({ error: error || '缺少登录凭证，请重新 login。' });
-  const result = worldEngine.heartbeat(handle.token);
+  const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '') || null;
+  if (!token) return res.status(401).json({ error: '缺少登录凭证，请重新 login。' });
+  const result = worldEngine.heartbeat(token);
   if (!result) return res.status(401).json({ error: '登录已失效，请重新 login。' });
   res.json(result);
 });
@@ -89,38 +68,70 @@ router.post('/logout', (req, res) => {
   res.json({ ok: true });
 });
 
-router.get('/look', requireSession, (req, res) => {
-  const result = worldEngine.look(req.requestHandle.playerId);
-  if (!result) return res.status(404).json({ error: '玩家不存在' });
-  res.json({ ...result, perceptions: req.drainPerceptions(), newMessages: req.drainNewMessages() });
+router.get('/look', requireSession, async (req, res) => {
+  const release = await actionLock.acquire(req.requestHandle.playerId);
+  try {
+    const result = worldEngine.look(req.requestHandle.playerId);
+    if (!result) return res.status(404).json({ error: '玩家不存在' });
+    res.json({ ...result, perceptions: req.drainPerceptions(), newMessages: req.drainNewMessages() });
+  } finally { release(); }
 });
 
-router.post('/walk', requireSession, (req, res) => {
-  const { direction, steps } = req.body || {};
-  if (!direction || !['N', 'S', 'W', 'E'].includes(direction)) {
-    return res.status(400).json({ error: '无效方向，可选: N/S/W/E' });
+router.post('/walk', requireSession, async (req, res) => {
+  const { to, x, y, forward, right } = req.body || {};
+
+  // -- 参数类型与边界校验 --
+  if (to !== undefined && (typeof to !== 'string' || to.length === 0 || to.length > 64)) {
+    return res.status(400).json({ error: 'to 参数必须为 1-64 字符的字符串' });
   }
-  if (!steps || steps < 1) return res.status(400).json({ error: '步数必须 >= 1' });
-  const result = worldEngine.move(req.requestHandle.playerId, direction, Math.floor(steps));
-  if (!result) return res.status(404).json({ error: '玩家不存在' });
-  res.json({ ...result, perceptions: req.drainPerceptions(), newMessages: req.drainNewMessages() });
+  if (x !== undefined && !Number.isFinite(x)) {
+    return res.status(400).json({ error: 'x 必须为有限数值' });
+  }
+  if (y !== undefined && !Number.isFinite(y)) {
+    return res.status(400).json({ error: 'y 必须为有限数值' });
+  }
+  if (forward !== undefined && !Number.isFinite(forward)) {
+    return res.status(400).json({ error: 'forward 必须为有限数值' });
+  }
+  if (right !== undefined && !Number.isFinite(right)) {
+    return res.status(400).json({ error: 'right 必须为有限数值' });
+  }
+
+  const hasAbsoluteCoord = typeof x === 'number' && typeof y === 'number';
+  const hasRelative = typeof forward === 'number' || typeof right === 'number';
+  if (!to && !hasAbsoluteCoord && !hasRelative) {
+    return res.status(400).json({ error: '需要指定目标: to(地名)、x+y(坐标)、或 forward/right(相对移动)' });
+  }
+  const release = await actionLock.acquire(req.requestHandle.playerId);
+  try {
+    const result = await worldEngine.move(req.requestHandle.playerId, { to, x, y, forward, right });
+    if (!result) return res.status(404).json({ error: '玩家不存在' });
+    if (result.error) return res.status(400).json({ error: result.error });
+    res.json({ ...result, perceptions: req.drainPerceptions(), newMessages: req.drainNewMessages() });
+  } finally { release(); }
 });
 
-router.post('/chat', requireSession, (req, res) => {
+router.post('/chat', requireSession, async (req, res) => {
   const { text } = req.body || {};
   if (!text) return res.status(400).json({ error: '缺少 text 字段' });
-  const result = worldEngine.chat(req.requestHandle.playerId, text);
-  if (!result) return res.status(404).json({ error: '玩家不存在' });
-  res.json({ ...result, perceptions: req.drainPerceptions(), newMessages: req.drainNewMessages() });
+  const release = await actionLock.acquire(req.requestHandle.playerId);
+  try {
+    const result = worldEngine.chat(req.requestHandle.playerId, text);
+    if (!result) return res.status(404).json({ error: '玩家不存在' });
+    res.json({ ...result, perceptions: req.drainPerceptions(), newMessages: req.drainNewMessages() });
+  } finally { release(); }
 });
 
-router.post('/interact', requireSession, (req, res) => {
-  const result = worldEngine.interact(req.requestHandle.playerId);
-  if (!result) return res.status(404).json({ error: '玩家不存在' });
-  res.json({ ...result, perceptions: req.drainPerceptions(), newMessages: req.drainNewMessages() });
+router.post('/interact', requireSession, async (req, res) => {
+  const release = await actionLock.acquire(req.requestHandle.playerId);
+  try {
+    const result = worldEngine.interact(req.requestHandle.playerId);
+    if (!result) return res.status(404).json({ error: '玩家不存在' });
+    res.json({ ...result, perceptions: req.drainPerceptions(), newMessages: req.drainNewMessages() });
+  } finally { release(); }
 });
 
-router.post('/memories/recall', requireSession, (req, res) => {
+router.post('/memories/recall', requireSession, async (req, res) => {
   const { partnerId, location, since, limit } = req.body || {};
   const numericSince = since == null ? null : Number(since);
   const numericLimit = limit == null ? undefined : Number(limit);
@@ -130,24 +141,36 @@ router.post('/memories/recall', requireSession, (req, res) => {
   if (limit != null && !Number.isFinite(numericLimit)) {
     return res.status(400).json({ error: 'limit must be a finite number' });
   }
-  const memories = worldEngine.recallMemories(req.requestHandle.playerId, {
-    partnerId: typeof partnerId === 'string' && partnerId ? partnerId : null,
-    location: typeof location === 'string' && location ? location : null,
-    since: numericSince,
-    limit: numericLimit,
-  });
-  if (!memories) return res.status(404).json({ error: 'player not found' });
-  res.json({ memories });
+  const release = await actionLock.acquire(req.requestHandle.playerId);
+  try {
+    const memories = worldEngine.recallMemories(req.requestHandle.playerId, {
+      partnerId: typeof partnerId === 'string' && partnerId ? partnerId : null,
+      location: typeof location === 'string' && location ? location : null,
+      since: numericSince,
+      limit: numericLimit,
+    });
+    if (!memories) return res.status(404).json({ error: 'player not found' });
+    res.json({ memories });
+  } finally { release(); }
 });
 
-router.put('/status', requireSession, (req, res) => {
-  const { isThinking } = req.body || {};
-  worldEngine.setThinking(req.requestHandle.playerId, isThinking);
-  res.json({ ok: true, perceptions: req.drainPerceptions(), newMessages: req.drainNewMessages() });
+router.put('/status', requireSession, async (req, res) => {
+  const release = await actionLock.acquire(req.requestHandle.playerId);
+  try {
+    const { isThinking } = req.body || {};
+    worldEngine.setThinking(req.requestHandle.playerId, isThinking);
+    res.json({ ok: true, perceptions: req.drainPerceptions(), newMessages: req.drainNewMessages() });
+  } finally { release(); }
 });
 
 router.get('/perceptions', requireSession, (req, res) => {
   res.json({ perceptions: req.drainPerceptions(), newMessages: req.drainNewMessages() });
+});
+
+router.get('/npcs', (req, res) => {
+  const npcManager = req.app.locals.npcManager;
+  if (!npcManager) return res.json({ npcs: [] });
+  res.json({ npcs: npcManager.getNpcList() });
 });
 
 function parseChatCursor(rawCursor) {

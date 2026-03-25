@@ -83,7 +83,7 @@ function createMockServer() {
             token,
             expires_at: new Date(Date.now() + 3600000).toISOString(),
             lease_expires_at: new Date(Date.now() + 180000).toISOString(),
-            message: previousToken ? `已接管角色 ${profile.name} 的在线会话。` : `已登录角色 ${profile.name}。`,
+            message: previousToken ? `took over ${profile.name}` : `logged in ${profile.name}`,
           }));
           return;
         }
@@ -121,7 +121,7 @@ function createMockServer() {
           if (state.lookMode === 'eligible') {
             res.end(JSON.stringify({
               player: { x: 5, y: 5, zone: 'Town Center', zoneDesc: 'Central square' },
-              nearby: [{ id: 'npc-alice', name: 'Alice', distance: 2, relativeDirection: '左侧', zone: 'Town Center', message: null }],
+              nearby: [{ id: 'npc-alice', name: 'Alice', distance: 2, relativeDirection: '宸︿晶', zone: 'Town Center', message: null }],
             }));
             return;
           }
@@ -140,8 +140,10 @@ function createMockServer() {
           }
           res.end(JSON.stringify({
             player: { x: 8, y: 5, zone: 'Town Center', zoneDesc: 'Central square' },
-            actualSteps: payload.steps,
-            blocked: false,
+            pathLength: 3,
+            arrived: true,
+            wasBlocked: false,
+            targetZone: 'Town Center',
           }));
           return;
         }
@@ -163,7 +165,7 @@ function createMockServer() {
             return;
           }
           res.end(JSON.stringify({
-            messages: [{ id: 1, time: Date.now(), name: 'BridgeBot', message: '你好' }],
+            messages: [{ id: 1, time: Date.now(), name: 'BridgeBot', message: 'hello' }],
             cursor: `${Date.now()}:1`,
           }));
           return;
@@ -175,7 +177,7 @@ function createMockServer() {
             res.end(JSON.stringify({ error: 'unauthorized' }));
             return;
           }
-          res.end(JSON.stringify({ zone: 'Town Center', action: '和居民交谈', result: '你和居民交换了情报。' }));
+          res.end(JSON.stringify({ zone: 'Town Center', action: 'Talk to resident', result: 'You exchanged a bit of town gossip.' }));
           return;
         }
 
@@ -349,7 +351,7 @@ describe('Bridge MCP (smoke)', () => {
       limit: 2,
     });
 
-    assert.match(await callTool(bridge, 8, 'walk', { direction: 'E', steps: 3 }), /你试图向 E 走 3 步/);
+    assert.match(await callTool(bridge, 8, 'walk', { forward: 3 }), /已到达/);
     assert.match(await callTool(bridge, 9, 'chat', { text: '你好' }), /你说: 你好/);
     assert.match(await callTool(bridge, 10, 'chat'), /聊天频道/);
     const interactText = await callTool(bridge, 11, 'interact');

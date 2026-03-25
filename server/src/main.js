@@ -6,6 +6,8 @@ const path = require('path');
 const worldEngine = require('./engine/world-engine');
 const apiRouter = require('./routes');
 
+const { NpcManager } = require('./npc/npc-manager');
+
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: '*' } });
@@ -30,7 +32,7 @@ app.get('/events', (req, res) => {
   sseClients.push({ id: clientId, res });
   console.log(`📺 新的网页观察者已连接 (ID: ${clientId})`);
 
-  res.write(`data: ${JSON.stringify(worldEngine.getAllPlayers())}\n\n`);
+  res.write(`data: ${JSON.stringify(worldEngine.sanitizeAllPlayers())}\n\n`);
   res.write(`event: chatHistory\ndata: ${JSON.stringify(worldEngine.getChatHistory())}\n\n`);
 
   req.on('close', () => {
@@ -41,9 +43,10 @@ app.get('/events', (req, res) => {
 
 // ── 监听世界事件并转发给观察端 ───────────────────────────────────────────────
 worldEngine.events.on('stateChange', () => {
-  const data = JSON.stringify(worldEngine.getAllPlayers());
+  const sanitized = worldEngine.sanitizeAllPlayers();
+  const data = JSON.stringify(sanitized);
   sseClients.forEach(c => c.res.write(`data: ${data}\n\n`));
-  io.emit('stateUpdate', worldEngine.getAllPlayers());
+  io.emit('stateUpdate', sanitized);
 });
 
 worldEngine.events.on('chat', (entry) => {
@@ -68,3 +71,16 @@ io.on('connection', (socket) => {
 });
 
 server.listen(PORT, () => console.log(`🌍 Underworld 已启动: http://localhost:${PORT}`));
+
+// ── 初始化 NPC 常驻系统 ─────────────────────────────────────────────────────
+const npcManager = new NpcManager(worldEngine);
+npcManager.start();
+app.locals.npcManager = npcManager;
+
+// ── 优雅关闭：清理 NPC ──────────────────────────────────────────────────────
+function gracefulShutdown() {
+  npcManager.stop();
+  server.close();
+}
+process.on('SIGTERM', gracefulShutdown);
+process.on('SIGINT', gracefulShutdown);

@@ -16,6 +16,24 @@
     let totalImagesToLoad = 1;
     let isGameLoopRunning = false;
 
+    // === Loading screen progress ===
+    const _loadBar = document.getElementById('loading-bar');
+    const _loadText = document.getElementById('loading-text');
+    let _loadingDismissed = false;
+    function _updateLoadingProgress() {
+      if (_loadingDismissed) return;
+      const pct = Math.min(100, Math.round(imagesLoaded / totalImagesToLoad * 100));
+      if (_loadBar) _loadBar.style.width = pct + '%';
+      if (_loadText) _loadText.textContent = 'Loading ' + pct + '%';
+      if (imagesLoaded >= totalImagesToLoad && mapData) { _dismissLoading(); }
+    }
+    function _dismissLoading() {
+      if (_loadingDismissed) return;
+      _loadingDismissed = true;
+      const el = document.getElementById('loading-screen');
+      if (el) { el.classList.add('fade-out'); setTimeout(() => el.remove(), 700); }
+    }
+
     // 同时缓存屏幕坐标和世界坐标，避免命中检测时反复换算。
     let mouseScreenX = -1, mouseScreenY = -1;
     let mouseX = -1, mouseY = -1;
@@ -78,13 +96,13 @@
     CHARACTER_SPRITES.forEach(name => {
       const img = new Image();
       img.src = `assets/characters/${name}.png`;
-      img.onload = () => { imagesLoaded++; };
+      img.onload = () => { imagesLoaded++; _updateLoadingProgress(); };
       characterImages[name] = img;
       totalImagesToLoad++;
     });
     images['player'] = new Image();
     images['player'].src = 'assets/player.png';
-    images['player'].onload = () => { imagesLoaded++; PLAYER_W = images['player'].width / 4; PLAYER_H = images['player'].height / 4; };
+    images['player'].onload = () => { imagesLoaded++; PLAYER_W = images['player'].width / 4; PLAYER_H = images['player'].height / 4; _updateLoadingProgress(); };
 
     const emoteImages = {};
     for (let i = 1; i <= 16; i++) { const img = new Image(); img.src = `assets/emotes/emote${i}.png`; emoteImages[i] = img; }
@@ -100,6 +118,11 @@
       heal: new Audio('assets/sounds/heal.wav'),
     };
     Object.values(sfx).forEach(s => { s.volume = 0.25; });
+    let sfxEnabled = true;
+    document.getElementById('sfx-toggle').addEventListener('click', () => {
+      sfxEnabled = !sfxEnabled;
+      document.getElementById('sfx-toggle').textContent = sfxEnabled ? 'SFX ON' : 'SFX OFF';
+    });
 
     const animalImages = {};
     ['Cat','Dog','Frog'].forEach(name => { const img = new Image(); img.src = `assets/animals/${name}.png`; animalImages[name] = img; });
@@ -344,7 +367,7 @@
             const imgName = ts.image.split('/').pop();
             images[imgName] = new Image();
             images[imgName].src = 'assets/' + imgName;
-            images[imgName].onload = () => { imagesLoaded++; };
+            images[imgName].onload = () => { imagesLoaded++; _updateLoadingProgress(); };
           });
         }
         // 观察端固定视口尺寸，避免布局变化打乱像素比例。
@@ -378,7 +401,7 @@
               clientPlayers[id].lastHeartbeatAt = sp.lastHeartbeatAt;
               if (sp.interactionSound && !clientPlayers[id]._lastSound) {
                 clientPlayers[id]._lastSound = sp.interactionSound;
-                if (sfx[sp.interactionSound]) sfx[sp.interactionSound].cloneNode().play().catch(() => {});
+                if (sfxEnabled && sfx[sp.interactionSound]) sfx[sp.interactionSound].cloneNode().play().catch(() => {});
               }
               if (!sp.interactionSound) clientPlayers[id]._lastSound = null;
             }
@@ -400,7 +423,7 @@
           updateAiPanel();
         };
         eventSource.addEventListener('chatHistory', (e) => { JSON.parse(e.data).forEach(entry => addChatMessage(entry.name, entry.message, entry.time)); });
-        eventSource.addEventListener('chat', (e) => { const entry = JSON.parse(e.data); addChatMessage(entry.name, entry.message, entry.time); sfx.chat.cloneNode().play().catch(() => {}); });
+        eventSource.addEventListener('chat', (e) => { const entry = JSON.parse(e.data); addChatMessage(entry.name, entry.message, entry.time); if (sfxEnabled) sfx.chat.cloneNode().play().catch(() => {}); });
         eventSource.addEventListener('interaction', (e) => { addInteractionMessage(JSON.parse(e.data)); });
         eventSource.addEventListener('activity', (e) => {
           const data = JSON.parse(e.data);
@@ -425,6 +448,7 @@
       const dt = (timestamp - lastFrameTime) / 1000;
       lastFrameTime = timestamp;
       if (mapData && imagesLoaded >= totalImagesToLoad) {
+        _dismissLoading();
         updateDayNight(dt);
         updateParticles(dt);
         updateNpcAnimals(dt);
@@ -471,7 +495,7 @@
     // === 更新插值动画 ===
     // ==========================================
     function updatePhysics() {
-      const MOVE_SPEED = 2, ANIM_SPEED = 0.15;
+      const MOVE_SPEED = 1.2, ANIM_SPEED = 0.09;
       for (const id in clientPlayers) {
         const p = clientPlayers[id];
         let isMoving = false;
